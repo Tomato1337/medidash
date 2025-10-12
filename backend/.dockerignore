@@ -1,0 +1,41 @@
+# Зависимости
+node_modules
+npm-debug.log
+pnpm-debug.log
+yarn-error.log
+
+# Тестовые файлы
+test
+coverage
+*.spec.ts
+*.test.ts
+
+# Собранные файлы
+dist
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Файлы разработки
+README.md
+
+# Docker
+Dockerfile
+.dockerignore
+
+# Переменные окружения (если есть)
+.env.local
+.env.development
+.env.test

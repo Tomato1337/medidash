@@ -1,0 +1,66 @@
+version: "3.8"
+
+services:
+    postgres:
+        image: postgres:16-alpine
+        container_name: health-helper-db
+        restart: unless-stopped
+        environment:
+            POSTGRES_USER: ${DB_USER:-postgres}
+            POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+            POSTGRES_DB: ${DB_NAME:-health_helper}
+        ports:
+            - "${DB_PORT:-5432}:5432"
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+        networks:
+            - health-helper-network
+
+    backend:
+        build:
+            context: .
+            dockerfile: Dockerfile.dev
+        container_name: health-helper-backend
+        restart: unless-stopped
+        environment:
+            NODE_ENV: dev
+            JWT_ACCESS_TOKEN_SECRET: ${JWT_ACCESS_TOKEN_SECRET}
+            JWT_ACCESS_TOKEN_EXPIRATION_MS: ${JWT_ACCESS_TOKEN_EXPIRATION_MS}
+            JWT_REFRESH_TOKEN_SECRET: ${JWT_REFRESH_TOKEN_SECRET}
+            JWT_REFRESH_TOKEN_EXPIRATION_MS: ${JWT_REFRESH_TOKEN_EXPIRATION_MS}
+            DATABASE_URL: "postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@${DB_HOST:-postgres}:${DB_PORT:-5432}/${DB_NAME:-health_helper}?schema=public"
+        ports:
+            - "${BACKEND_PORT:-3000}:3000"
+        volumes:
+            - .:/app
+            - /app/node_modules
+            - /app/generated
+        depends_on:
+            postgres:
+                condition: service_healthy
+        networks:
+            - health-helper-network
+        # develop:
+        #     watch:
+        #         - action: sync
+        #           path: ./src
+        #           target: /app/src
+        #         - action: sync
+        #           path: ./prisma
+        #           target: /app/prisma
+        #         - action: rebuild
+        #           path: package.json
+
+volumes:
+    postgres_data:
+        name: health-helper-postgres-data
+
+networks:
+    health-helper-network:
+        name: health-helper-network
+        driver: bridge

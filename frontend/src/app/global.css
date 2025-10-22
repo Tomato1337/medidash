@@ -177,6 +177,7 @@
 
 body {
     letter-spacing: var(--tracking-normal);
+    box-sizing: border-box;
 }
 
 @layer base {

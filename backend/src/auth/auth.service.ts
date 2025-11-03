@@ -11,6 +11,7 @@ import { PrismaService } from "src/prisma.service"
 import { FastifyReply, FastifyRequest } from "fastify"
 import { compare, hash } from "bcryptjs"
 import { User } from "generated/prisma"
+import { UserResponseDto } from "src/user/dto/user.dto"
 
 @Injectable()
 export class AuthService {
@@ -51,7 +52,7 @@ export class AuthService {
 				expiresIn: `${refreshExpirationMs}ms`,
 			})
 
-			const userData = {
+			const userData: UserResponseDto = {
 				id: user.id,
 				email: user.email,
 				name: user.name,
@@ -115,7 +116,7 @@ export class AuthService {
 	async verifyUserRefreshToken(
 		refreshToken: string,
 		userId: string,
-	): Promise<User> {
+	): Promise<UserResponseDto> {
 		try {
 			const user = await this.userService.getUserById(userId)
 

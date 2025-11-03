@@ -1,0 +1,21 @@
+{
+    "compilerOptions": {
+        "target": "ES2024",
+        "module": "nodenext",
+        "lib": ["ES2024"],
+        "moduleResolution": "nodenext",
+        "rootDir": ".",
+        "outDir": "./dist",
+        "strict": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true,
+        "resolveJsonModule": true,
+        "declaration": true,
+        "declarationMap": true,
+        "sourceMap": true,
+        "types": ["node"]
+    },
+    "include": ["**/*.ts"],
+    "exclude": ["node_modules", "dist", "generated"]
+}

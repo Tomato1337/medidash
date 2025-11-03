@@ -1,0 +1,22 @@
+FROM node:20-slim
+
+RUN apt-get update && apt-get install -y procps openssl && rm -rf /var/lib/apt/lists/*
+
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+WORKDIR /app
+
+COPY services/api-gateway/.npmrc services/api-gateway/package.json services/api-gateway/pnpm-lock.yaml ./
+
+RUN pnpm install
+
+COPY prisma/schema.prisma /app/prisma/schema.prisma
+COPY prisma/package.json /app/prisma/package.json
+
+RUN cd /app/prisma && pnpm install
+
+COPY services/api-gateway .
+
+EXPOSE 3000
+
+CMD sh -c "cd /app/prisma && pnpm generate && mkdir -p /app/dist/generated && cp -a /app/generated/. /app/dist/generated/ || true && cd /app && pnpm start:dev"

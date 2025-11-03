@@ -1,0 +1,57 @@
+FROM node:20-slim AS dependencies
+
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+WORKDIR /app
+
+COPY services/api-gateway/package.json services/api-gateway/pnpm-lock.yaml ./
+
+RUN pnpm install --frozen-lockfile --prod
+
+FROM node:20-slim AS builder
+
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+WORKDIR /app
+
+COPY services/api-gateway/package.json services/api-gateway/pnpm-lock.yaml ./
+
+RUN pnpm install --frozen-lockfile
+
+# Копируем только необходимые файлы Prisma (без node_modules!)
+COPY prisma/schema.prisma /app/prisma/schema.prisma
+COPY prisma/package.json /app/prisma/package.json
+
+# Генерируем Prisma Client (типы для TypeScript)
+RUN cd /app/prisma && pnpm install && pnpm generate
+
+COPY services/api-gateway .
+
+RUN pnpm build
+
+FROM node:20-slim AS production
+
+RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+WORKDIR /app
+
+COPY --from=dependencies /app/node_modules ./node_modules
+
+COPY --from=builder /app/prisma ./prisma
+
+COPY --from=builder /app/generated ./generated
+
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/package.json ./
+
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nestjs && \
+    chown -R nestjs:nodejs /app
+
+USER nestjs
+
+EXPOSE 3000
+
+CMD ["sh", "-c", "cd prisma && npx prisma migrate deploy && cd .. && node dist/main.js"]

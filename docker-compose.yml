@@ -1,0 +1,138 @@
+version: "3.8"
+
+networks:
+    medical-docs-network:
+        driver: bridge
+
+volumes:
+    postgres_data:
+    redis_data:
+    minio_data:
+
+services:
+    postgres:
+        image: pgvector/pgvector:pg16
+        container_name: medical-docs-postgres
+        restart: unless-stopped
+        environment:
+            POSTGRES_USER: ${POSTGRES_USER:-postgres}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+            POSTGRES_DB: ${POSTGRES_DB:-medical_docs}
+            POSTGRES_INITDB_ARGS: "-E UTF8"
+        ports:
+            - ${POSTGRES_PORT}:5432
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+        networks:
+            - medical-docs-network
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+            start_period: 10s
+        shm_size: 128mb
+
+    redis:
+        image: redis:7-alpine
+        container_name: medical-docs-redis
+        restart: unless-stopped
+        ports:
+            - ${REDIS_PORT}:6379
+        volumes:
+            - redis_data:/data
+        networks:
+            - medical-docs-network
+        command: >
+            redis-server
+            --maxmemory 256mb
+            --maxmemory-policy allkeys-lru
+            --appendonly yes
+            --appendfsync everysec
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+            start_period: 5s
+
+    minio:
+        image: minio/minio:latest
+        container_name: medical-docs-minio
+        restart: unless-stopped
+        environment:
+            MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+            MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+        ports:
+            - ${MINIO_PORT:-9000}:9000
+            - ${MINIO_CONSOLE_PORT:-9001}:9001
+        volumes:
+            - minio_data:/data
+        networks:
+            - medical-docs-network
+        command: server /data --console-address ":9001"
+        healthcheck:
+            test:
+                ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 10s
+
+    minio-init:
+        image: minio/mc:latest
+        container_name: medical-docs-minio-init
+        depends_on:
+            minio:
+                condition: service_healthy
+        networks:
+            - medical-docs-network
+        entrypoint: >
+            /bin/sh -c "
+            mc alias set myminio http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin};
+            mc mb myminio/${MINIO_BUCKET_NAME:-medical-documents} --ignore-existing;
+            mc anonymous set download myminio/${MINIO_BUCKET_NAME:-medical-documents};
+            exit 0;
+            "
+
+    api-gateway:
+        build:
+            context: .
+            dockerfile: services/api-gateway/Dockerfile.dev
+        container_name: medical-docs-api-gateway
+        restart: unless-stopped
+        ports:
+            - ${API_GATEWAY_PORT:-3000}:3000
+        environment:
+            NODE_ENV: dev
+            DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-medical_docs}?schema=public
+            REDIS_HOST: redis
+            REDIS_PORT: 6379
+        env_file:
+            - .env
+        depends_on:
+            postgres:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+            minio:
+                condition: service_healthy
+        networks:
+            - medical-docs-network
+        volumes:
+            - ./services/api-gateway/src:/app/src
+            - ./prisma:/app/prisma
+            - /app/node_modules
+            - /app/prisma/node_modules
+        healthcheck:
+            test:
+                [
+                    "CMD",
+                    "node",
+                    "-e",
+                    "require('http').get('http://localhost:3000/api/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1))",
+                ]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 40s

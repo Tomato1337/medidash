@@ -1,0 +1,36 @@
+{
+    "name": "@medical-docs/prisma",
+    "version": "1.0.0",
+    "description": "Prisma schema and migrations for medical documents system",
+    "private": true,
+    "scripts": {
+        "generate": "prisma generate",
+        "migrate:dev": "prisma migrate dev",
+        "migrate:deploy": "prisma migrate deploy",
+        "migrate:reset": "prisma migrate reset",
+        "studio": "prisma studio",
+        "seed": "tsx seed.ts",
+        "db:push": "prisma db push",
+        "db:pull": "prisma db pull"
+    },
+    "prisma": {
+        "seed": "tsx seed.ts"
+    },
+    "keywords": [
+        "prisma",
+        "postgresql",
+        "pgvector",
+        "database"
+    ],
+    "author": "",
+    "license": "ISC",
+    "devDependencies": {
+        "@types/node": "^20.10.5",
+        "prisma": "^5.19.0",
+        "tsx": "^4.7.0",
+        "typescript": "^5.3.3"
+    },
+    "dependencies": {
+        "@prisma/client": "^5.19.0"
+    }
+}

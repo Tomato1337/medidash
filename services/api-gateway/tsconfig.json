@@ -21,7 +21,11 @@
 		"noImplicitAny": false,
 		"strictBindCallApply": false,
 		"noFallthroughCasesInSwitch": false,
-		"verbatimModuleSyntax": false
+		"verbatimModuleSyntax": false,
+		"paths": {
+			"@prisma/*": ["./generated/prisma/*", "../../generated/prisma/*"],
+			"generated/prisma": ["./generated/prisma", "../../generated/prisma"]
+		}
 	},
 	"watchOptions": {
 		// Use native file system events for files and directories

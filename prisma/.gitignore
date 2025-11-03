@@ -1,0 +1,17 @@
+# Dependencies
+node_modules
+
+# Build output
+dist
+
+# Prisma generated client (будет генериться в ../generated/prisma)
+# Сам generated находится в backend/, поэтому здесь не нужен
+
+# Environment variables
+.env
+
+# Logs
+*.log
+
+# OS
+.DS_Store

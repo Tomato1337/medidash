@@ -4,15 +4,20 @@ import { lazy, StrictMode } from "react"
 import ReactDOM from "react-dom/client"
 import { RouterProvider, createRouter } from "@tanstack/react-router"
 import { routeTree } from "../shared/router/routeTree.gen"
-import {
-	QueryClient,
-	QueryClientProvider,
-	QueryCache,
-	MutationCache,
-} from "@tanstack/react-query"
+import { QueryClient, QueryCache, MutationCache } from "@tanstack/react-query"
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client"
+import { createIDBPersister } from "@/shared/lib/persistIndexDB"
 import { env } from "@/shared/config/env"
 import { Toaster } from "@/shared/ui/sonner"
 import { customToast } from "@/shared/lib/utils"
+import { terminateCompressionWorker } from "@/shared/lib/compressionWorkerManager"
+
+// Очистка воркера при закрытии страницы
+window.addEventListener("beforeunload", () => {
+	terminateCompressionWorker()
+})
+
+const persister = createIDBPersister()
 
 export const queryClient = new QueryClient({
 	defaultOptions: {
@@ -109,12 +114,15 @@ if (!rootElement.innerHTML) {
 	const root = ReactDOM.createRoot(rootElement)
 	root.render(
 		<StrictMode>
-			<QueryClientProvider client={queryClient}>
+			<PersistQueryClientProvider
+				client={queryClient}
+				persistOptions={{ persister }}
+			>
 				<RouterProvider router={router} />
 				<TanStackRouterDevtools router={router} />
 				<ReactQueryDevtools initialIsOpen={false} />
 				<Toaster />
-			</QueryClientProvider>
+			</PersistQueryClientProvider>
 		</StrictMode>,
 	)
 }

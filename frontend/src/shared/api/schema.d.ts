@@ -4,6 +4,274 @@
  */
 
 export interface paths {
+    "/api/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get all tags */
+        get: operations["TagsController_getAllTags"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get user records */
+        get: operations["RecordsController_getUserRecords"];
+        put?: never;
+        /** Create new record */
+        post: operations["RecordsController_createRecord"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/records/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get record by ID */
+        get: operations["RecordsController_getRecordById"];
+        /** Update record */
+        put: operations["RecordsController_updateRecord"];
+        post?: never;
+        /** Delete record */
+        delete: operations["RecordsController_deleteRecord"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/documents/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload document to record using streaming (recommended) */
+        post: operations["DocumentsController_uploadDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/documents/upload-url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Get pre-signed URL for direct upload (for large files >10MB) */
+        post: operations["DocumentsController_getUploadUrl"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/documents/{id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Confirm upload completion (for pre-signed URL uploads) */
+        get: operations["DocumentsController_confirmUpload"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/documents/record/{recordId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get all documents in record */
+        get: operations["DocumentsController_getRecordDocuments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/documents/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get document metadata */
+        get: operations["DocumentsController_getDocument"];
+        put?: never;
+        post?: never;
+        /** Delete document */
+        delete: operations["DocumentsController_deleteDocument"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/documents/{id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download document file */
+        get: operations["DocumentsController_downloadDocument"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/documents/{id}/download-url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get presigned download URL (recommended for security) */
+        get: operations["DocumentsController_getDownloadUrl"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Health check for API Gateway and all microservices */
+        get: operations["HealthController_check"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/health/ping": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Simple ping endpoint */
+        get: operations["HealthController_ping"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/api/events/processing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Подключение к SSE для получения событий обработки всех документов пользователя
+         * @description Устанавливает Server-Sent Events соединение для получения real-time уведомлений о статусе обработки документов. Клиент будет получать события: processing:started, processing:progress, processing:completed, processing:failed
+         */
+        get: operations["SseController_streamAllProcessingEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/api/events/processing/{recordId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Подключение к SSE для получения событий обработки конкретного record
+         * @description Устанавливает Server-Sent Events соединение для получения real-time уведомлений о статусе обработки конкретного record. Клиент будет получать события только для указанного recordId.
+         */
+        get: operations["SseController_streamRecordProcessingEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/api/events/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Получить статистику активных SSE подключений
+         * @description Возвращает информацию о количестве активных SSE клиентов (только для администраторов)
+         */
+        get: operations["SseController_getStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/register": {
         parameters: {
             query?: never;
@@ -110,6 +378,104 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        TagResponseDto: {
+            /** @example cmi6hd9110000f3gmj00bvhnu */
+            id: string;
+            /** @example Анализы */
+            name: string;
+            /** @example Результаты лабораторных анализов */
+            description?: Record<string, never> | null;
+            /** @example #3B82F6 */
+            color?: Record<string, never> | null;
+            /** @example true */
+            isSystem: boolean;
+            /**
+             * Format: date-time
+             * @example 2025-11-19T20:54:20.915Z
+             */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @example 2025-11-19T20:54:20.915Z
+             */
+            updatedAt: string;
+        };
+        CreateRecordDto: {
+            /** @example 550e8400-e29b-41d4-a716-446655440000 */
+            recordId: string;
+            /** @example Анализы за январь 2024 */
+            title: string;
+            /** @example Результаты общего анализа крови */
+            description?: string;
+            /** @example [
+             *       "cmi6hd9110000f3gmj00bvhnu",
+             *       "cmi6hd91m0001f3gmxk7t6nk3"
+             *     ] */
+            tags?: string[];
+            /** @example 2024-01-15T00:00:00.000Z */
+            date?: Record<string, never>;
+        };
+        RecordResponseDto: {
+            id: string;
+            userId: string;
+            title: string;
+            description?: Record<string, never>;
+            date?: Record<string, never>;
+            summary?: Record<string, never>;
+            /** Format: date-time */
+            createdAt: string;
+            documents: Record<string, never>[];
+            status: string;
+            /** Format: date-time */
+            updatedAt: string;
+            tags: string[];
+            documentCount: number;
+        };
+        RecordsUsersResponseDto: {
+            data: components["schemas"]["RecordResponseDto"][];
+            page: number;
+            limit: number;
+            total: number;
+        };
+        UpdateRecordDto: {
+            /** @example Анализы за февраль 2024 */
+            title?: string;
+            /** @example Обновленное описание */
+            description?: string;
+            /** @example [
+             *       "cmi6hd9110000f3gmj00bvhnu",
+             *       "cmi6hd91m0001f3gmxk7t6nk3"
+             *     ] */
+            tags?: string[];
+        };
+        DocumentResponseDto: {
+            id: string;
+            recordId: string;
+            title?: Record<string, never>;
+            fileName: string;
+            originalFileName: string;
+            mimeType: string;
+            fileSize: number;
+            description?: Record<string, never>;
+            /** @enum {string} */
+            status: "UPLOADING" | "PROCESSING" | "COMPLETED" | "FAILED";
+            errorMessage?: Record<string, never>;
+            processedAt?: Record<string, never>;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        GetPresignedUrlDto: {
+            /** @example large-document.pdf */
+            filename: string;
+            /** @example application/pdf */
+            mimetype: string;
+            /** @example 10485760 */
+            fileSize: number;
+            /** @example record-id-123 */
+            recordId: string;
+        };
         AuthRegisterDto: {
             /**
              * @description Email пользователя
@@ -199,6 +565,397 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    TagsController_getAllTags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TagResponseDto"][];
+                };
+            };
+        };
+    };
+    RecordsController_getUserRecords: {
+        parameters: {
+            query?: {
+                /** @description Page number */
+                page?: number;
+                /** @description Number of records per page */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordsUsersResponseDto"];
+                };
+            };
+        };
+    };
+    RecordsController_createRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateRecordDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordResponseDto"];
+                };
+            };
+        };
+    };
+    RecordsController_getRecordById: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordResponseDto"];
+                };
+            };
+        };
+    };
+    RecordsController_updateRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateRecordDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordResponseDto"];
+                };
+            };
+        };
+    };
+    RecordsController_deleteRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DocumentsController_uploadDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentResponseDto"];
+                };
+            };
+        };
+    };
+    DocumentsController_getUploadUrl: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GetPresignedUrlDto"];
+            };
+        };
+        responses: {
+            /** @description Returns upload URL and document ID */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DocumentsController_confirmUpload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentResponseDto"];
+                };
+            };
+        };
+    };
+    DocumentsController_getRecordDocuments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recordId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentResponseDto"][];
+                };
+            };
+        };
+    };
+    DocumentsController_getDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentResponseDto"];
+                };
+            };
+        };
+    };
+    DocumentsController_deleteDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DocumentsController_downloadDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description File stream */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DocumentsController_getDownloadUrl: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Returns temporary download URL */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        downloadUrl?: string;
+                        expiresIn?: number;
+                        filename?: string;
+                        mimeType?: string;
+                    };
+                };
+            };
+        };
+    };
+    HealthController_check: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Health status of the system */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    HealthController_ping: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Returns pong */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SseController_streamAllProcessingEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SseController_streamRecordProcessingEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description ID record для отслеживания */
+                recordId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SseController_getStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     AuthController_register: {
         parameters: {
             query?: never;

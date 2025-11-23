@@ -6,6 +6,14 @@ export function cn(...inputs: ClassValue[]) {
 	return twMerge(clsx(inputs))
 }
 
+export const formatDate = (timestamp: number | string) => {
+	return new Date(timestamp).toLocaleDateString("ru-RU", {
+		day: "numeric",
+		month: "long",
+		year: "numeric",
+	})
+}
+
 export const customToast = (
 	message: string,
 	type: "success" | "error" | "info",

@@ -27,24 +27,26 @@ const authMiddleware: Middleware = {
 		return modifiedRequest
 	},
 	async onResponse({ response, request }) {
+		// Если ответ успешный, возвращаем его как есть
 		if (response.ok) {
 			return response
 		}
 
+		// Обрабатываем только 401 ошибки
 		if (response.status === 401) {
 			const originalRequest = request.clone()
 
 			// Если уже идет обновление токена, добавляем запрос в очередь
 			if (isRefreshing) {
-				return new Promise((resolve, reject) => {
-					failedQueue.push({ resolve, reject })
-				})
-					.then(() => {
-						return fetch(originalRequest)
+				try {
+					await new Promise((resolve, reject) => {
+						failedQueue.push({ resolve, reject })
 					})
-					.catch((err) => {
-						return Promise.reject(err)
-					})
+					return fetch(originalRequest)
+				} catch {
+					// Возвращаем оригинальный 401 ответ
+					return response
+				}
 			}
 
 			isRefreshing = true
@@ -61,24 +63,28 @@ const authMiddleware: Middleware = {
 				if (refreshResponse.ok) {
 					processQueue(null)
 					isRefreshing = false
-
+					// Повторяем оригинальный запрос
 					return fetch(originalRequest)
 				} else {
+					// Refresh не удался
 					processQueue(new Error("Failed to refresh token"))
 					isRefreshing = false
-					throw new Error("Failed to refresh token")
+					// Возвращаем оригинальный 401 ответ
+					return response
 				}
 			} catch (error) {
 				processQueue(error as Error)
 				isRefreshing = false
-				throw error
+				// Возвращаем оригинальный 401 ответ
+				return response
 			}
 		}
 
+		// Для всех остальных ошибок возвращаем response как есть
 		return response
 	},
 }
-
+console.log(env.VITE_URL_TO_BACKEND)
 export const client = createClient<paths>({ baseUrl: env.VITE_URL_TO_BACKEND })
 client.use(authMiddleware)
 export type DTO = components["schemas"]

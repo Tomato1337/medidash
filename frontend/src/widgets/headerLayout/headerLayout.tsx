@@ -9,7 +9,7 @@ export default function HeaderLayout({
 }) {
 	const { data, isLoading } = useGetUser(isDashboard)
 	return (
-		<div className="flex h-screen flex-col">
+		<div className="flex h-screen flex-col overflow-x-hidden">
 			<div className="flex-shrink-0">
 				<div className="flex items-center justify-center gap-4 pt-4">
 					<Link to="/dashboard" className="pointer">
@@ -29,7 +29,7 @@ export default function HeaderLayout({
 				</div>
 				<hr className="relative left-1/2 my-4 w-screen -translate-x-1/2 border-t-2" />
 			</div>
-			<div className="container mx-auto flex-1">
+			<div className="container mx-auto flex-1 px-2">
 				<Outlet />
 			</div>
 		</div>

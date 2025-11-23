@@ -39,13 +39,6 @@ export default function RegisterPage() {
 				console.log("Register success:", data)
 				navigate({ to: "/dashboard" })
 			},
-			onError: (error) => {
-				console.error("Register error:", error)
-				customToast(
-					`Register failed. Please check your credentials and try again. ${error.message}`,
-					"error",
-				)
-			},
 		})
 	}
 

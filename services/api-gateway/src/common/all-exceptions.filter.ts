@@ -18,7 +18,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
 		const request = ctx.getRequest<FastifyRequest>()
 
 		let status = HttpStatus.INTERNAL_SERVER_ERROR
-		let message = "Internal server error"
+		let message: string | string[] = "Internal server error"
 		let error = "Internal Server Error"
 
 		if (exception instanceof HttpException) {
@@ -28,7 +28,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
 			if (typeof response === "string") {
 				message = response
 			} else if (typeof response === "object" && response !== null) {
-				message = (response as { message?: string }).message || message
+				message =
+					(response as { message?: string | string[] }).message ||
+					message
 				error = (response as { error?: string }).error || error
 			}
 		} else if (exception instanceof Error) {

@@ -1,22 +1,22 @@
 {
-  "name": "@medical-docs/shared-types",
-  "version": "1.0.0",
-  "description": "Shared TypeScript types for medical documents microservices",
-  "main": "index.ts",
-  "types": "index.ts",
-  "private": true,
-  "scripts": {
-    "build": "tsc",
-    "type-check": "tsc --noEmit"
-  },
-  "keywords": [
-    "types",
-    "typescript",
-    "shared"
-  ],
-  "author": "",
-  "license": "ISC",
-  "devDependencies": {
-    "typescript": "^5.3.3"
-  }
+	"name": "@medical-docs/shared-types",
+	"version": "1.0.0",
+	"description": "Shared TypeScript types for medical documents microservices",
+	"main": "index.js",
+	"types": "index.d.ts",
+	"private": true,
+	"scripts": {
+		"build": "tsc --build",
+		"type-check": "tsc --noEmit"
+	},
+	"keywords": [
+		"types",
+		"typescript",
+		"shared"
+	],
+	"author": "",
+	"license": "ISC",
+	"devDependencies": {
+		"typescript": "^5.3.3"
+	}
 }

@@ -41,21 +41,29 @@ export class HttpClientService {
 
 		this.logger.debug(`Proxying request to ${serviceName}: ${url}`)
 
-		options.headers =
-			options.method === "GET" || options.method === "DELETE"
-				? options.headers
-				: { ...options.headers, "Content-Type": "application/json" }
+		// Правильно объединяем заголовки
+		const defaultHeaders: Record<string, string> = {}
+		if (options.method !== "GET" && options.method !== "DELETE") {
+			defaultHeaders["Content-Type"] = "application/json"
+		}
+
+		options.headers = {
+			...defaultHeaders,
+			...(options.headers as Record<string, string>),
+		}
 
 		try {
 			const response = await fetch(url, options)
 
 			if (!response.ok) {
-				let errorData: { message?: string; error?: string } | null =
-					null
+				let errorData: {
+					message?: string | string[]
+					error?: string
+				} | null = null
 
 				try {
 					errorData = (await response.json()) as {
-						message?: string
+						message?: string | string[]
 						error?: string
 					}
 				} catch {
@@ -77,6 +85,10 @@ export class HttpClientService {
 				this.logger.error(
 					`Error from ${serviceName} (${response.status}): ${message}`,
 				)
+
+				if (errorData) {
+					throw new HttpException(errorData, response.status)
+				}
 
 				throw new HttpException(message, response.status)
 			}
@@ -137,6 +149,99 @@ export class HttpClientService {
 			body: body ? JSON.stringify(body) : undefined,
 			headers,
 		})
+	}
+	// fsdf
+
+	/**
+	 * POST request with raw body (for multipart/form-data, streams, etc.)
+	 */
+	async postRaw<T = unknown>(
+		serviceName: string,
+		path: string,
+		body: BodyInit,
+		headers?: HeadersInit,
+	): Promise<T> {
+		const baseUrl = this.services.get(serviceName)
+
+		if (!baseUrl) {
+			throw new HttpException(
+				`Unknown service: ${serviceName}`,
+				HttpStatus.INTERNAL_SERVER_ERROR,
+			)
+		}
+
+		const url = `${baseUrl}${path}`
+		this.logger.debug(`Proxying raw request to ${serviceName}: ${url}`)
+		this.logger.debug(`Headers: ${JSON.stringify(headers)}`)
+
+		try {
+			const response = await fetch(url, {
+				method: "POST",
+				body,
+				headers: headers as Record<string, string>,
+				// @ts-expect-error - duplex is required for streams but not in TypeScript types yet
+				duplex: "half",
+			})
+
+			if (!response.ok) {
+				let errorData: {
+					message?: string | string[]
+					error?: string
+				} | null = null
+
+				try {
+					errorData = (await response.json()) as {
+						message?: string | string[]
+						error?: string
+					}
+				} catch {
+					const errorText = await response.text()
+					this.logger.error(
+						`Error from ${serviceName} (${response.status}): ${errorText}`,
+					)
+					throw new HttpException(
+						errorText ||
+							`Service ${serviceName} returned ${response.status}`,
+						response.status,
+					)
+				}
+
+				const message =
+					errorData?.message ||
+					`Service ${serviceName} returned ${response.status}`
+				this.logger.error(
+					`Error from ${serviceName} (${response.status}): ${message}`,
+				)
+
+				if (errorData) {
+					throw new HttpException(errorData, response.status)
+				}
+
+				throw new HttpException(message, response.status)
+			}
+
+			const contentType = response.headers.get("content-type")
+			if (contentType?.includes("application/json")) {
+				return (await response.json()) as T
+			}
+
+			return {} as T
+		} catch (error) {
+			if (error instanceof HttpException) {
+				throw error
+			}
+
+			const message =
+				error instanceof Error ? error.message : "Unknown error"
+			this.logger.error(
+				`Failed to communicate with ${serviceName}: ${message}`,
+			)
+
+			throw new HttpException(
+				`Failed to communicate with ${serviceName}: ${message}`,
+				HttpStatus.SERVICE_UNAVAILABLE,
+			)
+		}
 	}
 
 	/**

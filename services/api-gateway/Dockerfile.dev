@@ -1,22 +1,23 @@
 FROM node:20-slim
 
-RUN apt-get update && apt-get install -y procps openssl && rm -rf /var/lib/apt/lists/*
-
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN apt-get update && apt-get install -y procps openssl rsync && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-COPY services/api-gateway/.npmrc services/api-gateway/package.json services/api-gateway/pnpm-lock.yaml ./
+COPY services/api-gateway/.npmrc services/api-gateway/package.json services/api-gateway/package-lock.json ./
 
-RUN pnpm install
+RUN npm ci
 
 COPY prisma/schema.prisma /app/prisma/schema.prisma
-COPY prisma/package.json /app/prisma/package.json
+COPY prisma/package.json prisma/package-lock.json /app/prisma/
 
-RUN cd /app/prisma && pnpm install
+RUN cd /app/prisma && npm ci
 
+COPY services/shared-types /app/shared-types
+
+RUN cd /app/shared-types && npm ci && npm run build
 COPY services/api-gateway .
 
 EXPOSE 3000
 
-CMD sh -c "cd /app/prisma && pnpm generate && mkdir -p /app/dist/generated && cp -a /app/generated/. /app/dist/generated/ || true && cd /app && pnpm start:dev"
+CMD sh -c "cd /app/prisma && npm run migrate:deploy && mkdir -p /app/dist/prisma/generated && rsync -av --exclude='*.dll.node' /app/prisma/generated/ /app/dist/prisma/generated/ && cd /app && npm run start:dev"

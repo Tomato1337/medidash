@@ -10,7 +10,7 @@ import { CurrentUser } from "src/auth/decorators/current-user.decorator"
 import { UserResponseDto } from "./dto/user.dto"
 import type { User } from "generated/prisma"
 
-@ApiTags("user")
+@ApiTags("Users")
 @Controller("user")
 export class UserController {
 	constructor(private userService: UserService) {}

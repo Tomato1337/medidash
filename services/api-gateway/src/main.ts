@@ -6,9 +6,15 @@ import {
 } from "@nestjs/platform-fastify"
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger"
 import { AppModule } from "./app.module"
+import { AuthModule } from "./auth/auth.module"
+import { UserModule } from "./user/user.module"
+import { HealthModule } from "./health/health.module"
+import { SseModule } from "./sse/sse.module"
 import { ValidationPipe, Logger } from "@nestjs/common"
 import fastifyCookie from "@fastify/cookie"
+import fastifyMultipart from "@fastify/multipart"
 import { EnvService } from "./env/env.service"
+import { SwaggerAggregatorService } from "./swagger/swagger.service"
 
 async function bootstrap() {
 	const logger = new Logger("Bootstrap")
@@ -17,29 +23,32 @@ async function bootstrap() {
 		AppModule,
 		new FastifyAdapter({
 			logger: process.env.NODE_ENV === "dev",
+			bodyLimit: 104857600,
 		}),
 	)
 
 	const envService = app.get(EnvService)
+	const swaggerAggregator = app.get(SwaggerAggregatorService)
 	const port = envService.get("API_GATEWAY_PORT")
 	const corsOrigin = envService.get("CORS_ORIGIN")
 	const nodeEnv = envService.get("NODE_ENV")
 
-	const config = new DocumentBuilder()
-		.setTitle("Medical Documents API Gateway")
-		.setDescription("API Gateway for Medical Documents Management System")
-		.setVersion("1.0")
-		.addTag("auth", "Authentication endpoints")
-		.addTag("users", "User management endpoints")
-		.addTag(
-			"documents",
-			"Document management (proxied to Document Service)",
+	const gatewayConfig = new DocumentBuilder()
+		.setTitle("Health Helper API")
+		.setDescription(
+			"Unified API documentation for all Health Helper microservices",
 		)
-		.addTag("search", "Search endpoints (proxied to Search Service)")
+		.setVersion("1.0")
 		.addBearerAuth()
 		.build()
 
 	await app.register(fastifyCookie as any)
+	await app.register(fastifyMultipart, {
+		limits: {
+			fileSize: 50 * 1024 * 1024,
+			files: 10,
+		},
+	})
 
 	app.setGlobalPrefix("api", {
 		exclude: [],
@@ -56,15 +65,48 @@ async function bootstrap() {
 		new ValidationPipe({
 			whitelist: true,
 			transform: true,
-			forbidNonWhitelisted: true,
 			transformOptions: {
 				enableImplicitConversion: true,
 			},
 		}),
 	)
 
-	const documentFactory = () => SwaggerModule.createDocument(app, config)
-	SwaggerModule.setup("api/docs", app, documentFactory)
+	// Generate API Gateway's own OpenAPI spec (only auth, users, health, sse)
+	const gatewayDocument = SwaggerModule.createDocument(app, gatewayConfig, {
+		include: [AuthModule, UserModule, HealthModule, SseModule],
+	})
+
+	// Aggregate specs from all microservices
+	try {
+		const aggregatedSpec = await swaggerAggregator.aggregateSpecs()
+
+		// Merge gateway's own endpoints into aggregated spec
+		if (gatewayDocument.paths && aggregatedSpec.paths) {
+			Object.assign(aggregatedSpec.paths, gatewayDocument.paths)
+		}
+		if (
+			gatewayDocument.components?.schemas &&
+			aggregatedSpec.components?.schemas
+		) {
+			Object.assign(
+				aggregatedSpec.components.schemas,
+				gatewayDocument.components.schemas,
+			)
+		}
+
+		// Setup Swagger UI with aggregated spec
+		SwaggerModule.setup("api/docs", app, aggregatedSpec, {
+			jsonDocumentUrl: "api/docs/json",
+		})
+		logger.log(
+			`📚 Unified Swagger includes ${swaggerAggregator.getServices().length} microservices`,
+		)
+	} catch {
+		logger.error(
+			"Failed to aggregate Swagger specs, using gateway-only docs",
+		)
+		SwaggerModule.setup("api/docs", app, gatewayDocument)
+	}
 
 	await app.listen(port, "0.0.0.0")
 

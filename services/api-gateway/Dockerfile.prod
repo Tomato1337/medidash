@@ -18,12 +18,12 @@ COPY services/api-gateway/package.json services/api-gateway/pnpm-lock.yaml ./
 
 RUN pnpm install --frozen-lockfile
 
-# Копируем только необходимые файлы Prisma (без node_modules!)
 COPY prisma/schema.prisma /app/prisma/schema.prisma
 COPY prisma/package.json /app/prisma/package.json
 
-# Генерируем Prisma Client (типы для TypeScript)
 RUN cd /app/prisma && pnpm install && pnpm generate
+
+COPY services/shared-types /app/shared-types
 
 COPY services/api-gateway .
 

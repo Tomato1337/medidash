@@ -18,7 +18,7 @@ import { CurrentUser } from "./decorators/current-user.decorator"
 import type { FastifyReply, FastifyRequest } from "fastify"
 import type { User } from "generated/prisma"
 
-@ApiTags("auth")
+@ApiTags("Authentication")
 @Controller("auth")
 export class AuthController {
 	constructor(private readonly authService: AuthService) {}

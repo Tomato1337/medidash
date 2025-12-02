@@ -1,0 +1,6 @@
+{
+	"resolveFullPaths": true,
+	"replacers": {
+		"../../shared-types/index.ts": "../../shared-types/index.js"
+	}
+}

@@ -31,7 +31,6 @@ export class AuthService {
 			const refreshExpiresIn: string =
 				this.configService.get("JWT_REFRESH_EXPIRES_IN") || "7d"
 
-			// Convert expires in to milliseconds
 			const expirationMs = this.parseExpirationTime(expiresIn)
 			const refreshExpirationMs =
 				this.parseExpirationTime(refreshExpiresIn)
@@ -106,10 +105,6 @@ export class AuthService {
 		}
 	}
 
-	/**
-	 * Parse expiration time string to milliseconds
-	 * Supports: 15m, 7d, 1h, 30s
-	 */
 	private parseExpirationTime(expiresIn: string): number {
 		const match = expiresIn.match(/^(\d+)([smhd])$/)
 		if (!match) {

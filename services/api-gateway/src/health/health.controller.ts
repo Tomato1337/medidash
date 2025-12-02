@@ -13,7 +13,7 @@ interface HealthStatus {
 	}[]
 }
 
-@ApiTags("health")
+@ApiTags("Health")
 @Controller("health")
 export class HealthController {
 	constructor(private readonly httpClient: HttpClientService) {}

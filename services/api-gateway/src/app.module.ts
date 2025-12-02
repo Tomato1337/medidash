@@ -5,15 +5,17 @@ import { CommonModule } from "./common/common.module"
 import { HealthModule } from "./health/health.module"
 import { SseModule } from "./sse/sse.module"
 import { ProxyModule } from "./proxy/proxy.module"
+import { SwaggerModule } from "./swagger/swagger.module"
 import { Module, NestModule, MiddlewareConsumer } from "@nestjs/common"
 import { ConfigModule } from "@nestjs/config"
 import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler"
-import { APP_GUARD, APP_FILTER } from "@nestjs/core"
+import { APP_GUARD, APP_FILTER, APP_INTERCEPTOR } from "@nestjs/core"
 import configuration from "src/env/configuration"
 import { validateEnv } from "src/env/env.schema"
 import { EnvService } from "./env/env.service"
 import { AllExceptionsFilter } from "./common/all-exceptions.filter"
 import { LoggerMiddleware } from "./common/logger.middleware"
+import { UserContextInterceptor } from "./common/user-context.interceptor"
 
 @Module({
 	imports: [
@@ -29,7 +31,7 @@ import { LoggerMiddleware } from "./common/logger.middleware"
 			useFactory: (envService: EnvService) => ({
 				throttlers: [
 					{
-						ttl: envService.get("RATE_LIMIT_TTL") * 1000, // конвертируем секунды в миллисекунды
+						ttl: envService.get("RATE_LIMIT_TTL") * 1000,
 						limit: envService.get("RATE_LIMIT_MAX"),
 					},
 				],
@@ -37,6 +39,7 @@ import { LoggerMiddleware } from "./common/logger.middleware"
 		}),
 
 		CommonModule,
+		SwaggerModule,
 
 		HealthModule,
 		SseModule,
@@ -53,6 +56,10 @@ import { LoggerMiddleware } from "./common/logger.middleware"
 		{
 			provide: APP_FILTER,
 			useClass: AllExceptionsFilter,
+		},
+		{
+			provide: APP_INTERCEPTOR,
+			useClass: UserContextInterceptor,
 		},
 	],
 })

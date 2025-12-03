@@ -24,6 +24,7 @@ enum Role {
 
 enum DocumentStatus {
     UPLOADING // Файл загружается в MinIO
+    PARSING
     PROCESSING // Документ обрабатывается (парсинг, анонимизация, векторизация)
     COMPLETED // Обработка завершена успешно
     FAILED // Ошибка при обработке
@@ -79,16 +80,17 @@ model RefreshToken {
 
 // Record - группа связанных медицинских документов (например, все документы одного визита к врачу)
 model Record {
-    id          String         @id @default(cuid())
-    userId      String
-    title       String // Автоматически генерируется AI или задаётся пользователем
-    description String? // Опциональное описание
-    date        DateTime       @default(now()) // Дата создания записи или извлечённая дата
-    summary     String? // Суммаризация всех документов в Record
-    status      DocumentStatus @default(UPLOADING)
-    createdAt   DateTime       @default(now())
-    updatedAt   DateTime       @updatedAt
-    deletedAt   DateTime?
+    id                     String         @id @default(cuid())
+    userId                 String
+    title                  String // Автоматически генерируется AI или задаётся пользователем
+    description            String? // Опциональное описание
+    date                   DateTime       @default(now()) // Дата создания записи или извлечённая дата
+    summary                String? // Суммаризация всех документов в Record
+    status                 DocumentStatus @default(UPLOADING)
+    expectedDocumentsCount Int? // Ожидаемое количество документов (для проверки готовности)
+    createdAt              DateTime       @default(now())
+    updatedAt              DateTime       @updatedAt
+    deletedAt              DateTime?
 
     // Relations
     user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -115,6 +117,9 @@ model Document {
     minioObjectKey   String // Ключ объекта в MinIO
     status           DocumentStatus @default(UPLOADING)
     errorMessage     String? // Сообщение об ошибке, если status = FAILED
+    failedPhase      String? // Фаза, на которой произошла ошибка: "parsing" | "processing"
+    extractedText    String?        @db.Text // Извлечённый текст из PDF (до анонимизации)
+    metadata         Json? // Метаданные документа (pageCount, etc.)
     processedAt      DateTime? // Когда завершена обработка
     createdAt        DateTime       @default(now())
     updatedAt        DateTime       @updatedAt

@@ -237,6 +237,8 @@ export class RecordsService {
 				recordStatus = DocumentStatus.FAILED
 			} else if (statuses.includes(DocumentStatus.UPLOADING)) {
 				recordStatus = DocumentStatus.UPLOADING
+			} else if (statuses.includes(DocumentStatus.PARSING)) {
+				recordStatus = DocumentStatus.PARSING
 			} else if (statuses.includes(DocumentStatus.PROCESSING)) {
 				recordStatus = DocumentStatus.PROCESSING
 			} else if (

@@ -25,8 +25,8 @@
 		"verbatimModuleSyntax": false,
 		"paths": {
 			"generated/prisma": [
-				"./prisma/generated/prisma",
-				"../../prisma/generated/prisma"
+				"./prisma/generated/prisma/client",
+				"../../prisma/generated/prisma/client"
 			],
 			"@shared-types": ["../shared-types", "./shared-types"],
 			"@shared-types/*": ["../shared-types/*", "./shared-types/*"]

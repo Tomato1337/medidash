@@ -3,6 +3,7 @@
 	"version": "1.0.0",
 	"description": "Prisma schema and migrations for medical documents system",
 	"private": true,
+	"type": "module",
 	"scripts": {
 		"generate": "prisma generate",
 		"migrate:dev": "prisma migrate dev",

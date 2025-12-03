@@ -5,25 +5,32 @@ import {
 	UseGuards,
 	HttpException,
 	HttpStatus,
+	Get,
 } from "@nestjs/common"
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger"
 import type { FastifyRequest } from "fastify"
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard"
 import { HttpClientService } from "../common/http-client.service"
+import { Public } from "../auth/decorators/public.decorator"
 
 @ApiTags("Processing")
-@Controller("api/processing")
+@Controller("processing")
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class ProcessingProxyController {
 	constructor(private readonly httpClient: HttpClientService) {}
 
+	@Public()
+	@Get("health")
+	async healthCheck(@Req() req: FastifyRequest): Promise<unknown> {
+		return await this.httpClient.get("processing", req.url)
+	}
+
 	@All("*")
 	async proxyToProcessingService(
 		@Req() req: FastifyRequest,
 	): Promise<unknown> {
-		const path = req.url.replace("/api/processing", "")
-		const url = `/api/processing${path}`
+		const url = req.url
 
 		switch (req.method) {
 			case "GET":

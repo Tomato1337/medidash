@@ -62,7 +62,9 @@ export class DocumentResponseDto {
 	@ApiProperty({ required: false })
 	description: string | null
 
-	@ApiProperty({ enum: ["UPLOADING", "PROCESSING", "COMPLETED", "FAILED"] })
+	@ApiProperty({
+		enum: ["UPLOADING", "PROCESSING", "PARSING", "COMPLETED", "FAILED"],
+	})
 	status: string
 
 	@ApiProperty({ required: false })

@@ -15,12 +15,15 @@ export class SwaggerAggregatorService {
 	private readonly services: ServiceSpec[] = []
 
 	constructor(private configService: EnvService) {
-		// Register all microservices
+		// Register all microservice
 		this.registerService({
 			name: "Document Service",
-			url:
-				this.configService.get("DOCUMENT_SERVICE_URL") ||
-				"http://document-service:3001",
+			url: this.configService.get("DOCUMENT_SERVICE_URL"),
+		})
+
+		this.registerService({
+			name: "Processing Service",
+			url: this.configService.get("PROCESSING_SERVICE_URL"),
 		})
 	}
 

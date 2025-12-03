@@ -1,0 +1,60 @@
+{
+	"name": "processing-service",
+	"version": "1.0.0",
+	"description": "Document processing service - parsing, chunking, AI orchestration",
+	"author": "",
+	"private": true,
+	"license": "UNLICENSED",
+	"scripts": {
+		"build": "nest build && tsc-alias",
+		"format": "prettier --write \"src/**/*.ts\"",
+		"start": "nest start",
+		"start:dev": "nest start --watch --clear=false",
+		"start:debug": "nest start --debug --watch",
+		"start:prod": "node dist/main",
+		"lint": "eslint \"{src,apps,libs}/**/*.ts\" --fix"
+	},
+	"_moduleAliases": {
+		"@shared-types": "dist/shared-types"
+	},
+	"dependencies": {
+		"@fastify/cookie": "^11.0.2",
+		"@nestjs/bullmq": "^11.0.2",
+		"@nestjs/common": "^11.1.9",
+		"@nestjs/config": "^4.0.2",
+		"@nestjs/core": "^11.1.9",
+		"@nestjs/platform-fastify": "^11.1.9",
+		"@nestjs/swagger": "^11.2.3",
+		"@prisma/adapter-pg": "^7.0.0",
+		"@prisma/client": "^7.0.0",
+		"bullmq": "^5.31.0",
+		"class-transformer": "^0.5.1",
+		"class-validator": "^0.14.1",
+		"fastify": "^5.6.1",
+		"ioredis": "^5.4.1",
+		"minio": "^8.0.2",
+		"module-alias": "^2.2.3",
+		"pdf-parse": "^1.1.1",
+		"reflect-metadata": "^0.2.0",
+		"rxjs": "^7.8.1",
+		"tonl": "^2.4.1",
+		"zod": "^3.24.1"
+	},
+	"devDependencies": {
+		"@nestjs/cli": "^11.0.1",
+		"@nestjs/schematics": "^11.0.1",
+		"@types/node": "^24.10.1",
+		"@types/pdf-parse": "^1.1.4",
+		"@typescript-eslint/eslint-plugin": "^8.16.0",
+		"@typescript-eslint/parser": "^8.16.0",
+		"eslint": "^9.16.0",
+		"prettier": "^3.4.2",
+		"prisma": "^7.0.0",
+		"source-map-support": "^0.5.21",
+		"ts-loader": "^9.5.1",
+		"ts-node": "^10.9.2",
+		"tsc-alias": "^1.8.16",
+		"tsconfig-paths": "^4.2.0",
+		"typescript": "^5.7.2"
+	}
+}

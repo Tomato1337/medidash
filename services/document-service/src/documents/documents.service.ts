@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common"
 import { PrismaService } from "../prisma/prisma.service"
 import { MinioService } from "../minio/minio.service"
+import { RedisService } from "../redis/redis.service"
 import { DocumentResponseDto } from "./dto/document.dto"
 import { randomUUID } from "crypto"
 import { Readable } from "stream"
@@ -19,6 +20,7 @@ export class DocumentsService {
 	constructor(
 		private prisma: PrismaService,
 		private minio: MinioService,
+		private redis: RedisService,
 	) {}
 
 	/**
@@ -404,11 +406,12 @@ export class DocumentsService {
 
 	/**
 	 * Подтвердить успешную загрузку файла через pre-signed URL
+	 * После подтверждения проверяет готовность всех документов Record к парсингу
 	 */
 	async confirmUpload(
 		documentId: string,
 		userId: string,
-	): Promise<DocumentResponseDto> {
+	): Promise<DocumentResponseDto & { allDocumentsReady: boolean }> {
 		const document = await this.prisma.document.findFirst({
 			where: {
 				id: documentId,
@@ -433,12 +436,12 @@ export class DocumentsService {
 		// Получаем реальный размер файла
 		const stats = await this.minio.getFileStats(document.minioObjectKey)
 
-		// Обновляем документ
+		// Обновляем документ - статус PARSING означает "готов к парсингу"
 		const updatedDocument = await this.prisma.document.update({
 			where: { id: documentId },
 			data: {
 				fileSize: stats.size,
-				status: "PROCESSING", // Готов к обработке
+				status: "PARSING",
 			},
 		})
 
@@ -446,10 +449,82 @@ export class DocumentsService {
 			`✅ Confirmed upload for document ${documentId} (actual size: ${(stats.size / 1024 / 1024).toFixed(2)}MB)`,
 		)
 
-		// TODO: Send processing event to queue
-		// await this.queueService.addProcessingJob(document.id)
+		// Проверяем готовность всех документов Record к парсингу
+		const allDocumentsReady = await this.checkAndTriggerParsing(
+			document.recordId,
+			userId,
+		)
 
-		return this.mapToResponseDto(updatedDocument)
+		return {
+			...this.mapToResponseDto(updatedDocument),
+			allDocumentsReady,
+		}
+	}
+
+	/**
+	 * Проверяет готовность всех документов Record к парсингу
+	 * Если все документы имеют статус PARSING - публикует событие в Redis
+	 */
+	private async checkAndTriggerParsing(
+		recordId: string,
+		userId: string,
+	): Promise<boolean> {
+		// Получаем все документы Record
+		const documents = await this.prisma.document.findMany({
+			where: {
+				recordId,
+				deletedAt: null,
+			},
+			select: {
+				id: true,
+				status: true,
+			},
+		})
+
+		if (documents.length === 0) {
+			return false
+		}
+
+		// Проверяем что все документы имеют статус PARSING (готовы к обработке)
+		const allReady = documents.every((doc) => doc.status === "PARSING")
+
+		console.log(allReady, documents)
+
+		if (!allReady) {
+			const statusCounts = documents.reduce(
+				(acc, doc) => {
+					acc[doc.status] = (acc[doc.status] || 0) + 1
+					return acc
+				},
+				{} as Record<string, number>,
+			)
+
+			this.logger.log(
+				`⏳ Record ${recordId}: not all documents ready. Status: ${JSON.stringify(statusCounts)}`,
+			)
+			return false
+		}
+
+		// Все документы готовы - обновляем статус Record и публикуем событие
+		await this.prisma.record.update({
+			where: { id: recordId },
+			data: { status: "PARSING" },
+		})
+
+		const documentIds = documents.map((doc) => doc.id)
+
+		// Публикуем событие для Processing Service
+		await this.redis.publishRecordReadyForParsing({
+			recordId,
+			userId,
+			documentIds,
+		})
+
+		this.logger.log(
+			`🚀 Record ${recordId}: all ${documents.length} documents ready for parsing`,
+		)
+
+		return true
 	}
 
 	private mapToResponseDto(document: any): DocumentResponseDto {

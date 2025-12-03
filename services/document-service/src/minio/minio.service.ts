@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common"
-import { ConfigService } from "@nestjs/config"
 import * as Minio from "minio"
+import { EnvService } from "src/env/env.service"
 import { Readable } from "stream"
 
 @Injectable()
@@ -12,7 +12,7 @@ export class MinioService implements OnModuleInit {
 	private accessKey: string
 	private secretKey: string
 
-	constructor(private configService: ConfigService) {
+	constructor(private configService: EnvService) {
 		this.bucketName =
 			this.configService.get("MINIO_BUCKET_NAME") || "medical-documents"
 
@@ -26,7 +26,7 @@ export class MinioService implements OnModuleInit {
 		// Nginx proxies external requests to minio:9000
 		this.client = new Minio.Client({
 			endPoint: this.configService.get("MINIO_ENDPOINT") || "minio",
-			port: parseInt(this.configService.get("MINIO_PORT") || "9000", 10),
+			port: this.configService.get("MINIO_PORT") || 9000,
 			useSSL: this.useSSL,
 			accessKey: this.accessKey,
 			secretKey: this.secretKey,

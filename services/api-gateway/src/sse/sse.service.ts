@@ -12,9 +12,11 @@ import z from "zod"
 const processingEventSchema = z.object({
 	recordId: z.string(),
 	userId: z.string(),
-	type: z.enum(["started", "progress", "completed", "failed"]),
-	data: z.record(z.string(), z.unknown()),
-	timestamp: z.string().optional(),
+	type: z.string(), // e.g. "parsing:started", "processing:completed"
+	documentId: z.string().optional(),
+	data: z.record(z.string(), z.unknown()).optional(),
+	error: z.string().optional(),
+	timestamp: z.string(),
 })
 type ProcessingEvent = z.infer<typeof processingEventSchema>
 
@@ -162,8 +164,10 @@ export class SseService implements OnModuleInit, OnModuleDestroy {
 				continue
 			}
 
-			this.sendEvent(client.response, `processing:${event.type}`, {
+			this.sendEvent(client.response, event.type, {
 				recordId: event.recordId,
+				documentId: event.documentId,
+				error: event.error,
 				...event.data,
 			})
 		}

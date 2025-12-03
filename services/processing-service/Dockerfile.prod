@@ -1,0 +1,67 @@
+# ============================================================================
+# Stage 1: Dependencies
+# ============================================================================
+FROM node:20-slim AS dependencies
+
+RUN apt-get update && apt-get install -y procps openssl && rm -rf /var/lib/apt/lists/*
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+WORKDIR /app
+
+COPY services/processing-service/.npmrc services/processing-service/package.json services/processing-service/pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile --prod
+
+# ============================================================================
+# Stage 2: Builder
+# ============================================================================
+FROM node:20-slim AS builder
+
+RUN apt-get update && apt-get install -y procps openssl && rm -rf /var/lib/apt/lists/*
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+WORKDIR /app
+
+COPY services/processing-service/.npmrc services/processing-service/package.json services/processing-service/pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+
+COPY prisma/schema.prisma /app/prisma/schema.prisma
+COPY prisma/package.json /app/prisma/package.json
+
+RUN cd /app/prisma && pnpm install && pnpm generate
+
+COPY services/shared-types /app/shared-types
+
+COPY services/processing-service .
+
+RUN pnpm build
+
+# ============================================================================
+# Stage 3: Production
+# ============================================================================
+FROM node:20-slim AS production
+
+RUN apt-get update && apt-get install -y procps openssl && rm -rf /var/lib/apt/lists/*
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# Создаем non-root пользователя
+RUN groupadd -r nestjs && useradd -r -g nestjs -u 1001 nestjs
+
+WORKDIR /app
+
+# Копируем зависимости из dependencies stage
+COPY --from=dependencies --chown=nestjs:nestjs /app/node_modules ./node_modules
+
+COPY --from=builder --chown=nestjs:nestjs /app/dist ./dist
+COPY --from=builder --chown=nestjs:nestjs /app/package.json ./
+
+COPY --chown=nestjs:nestjs prisma /app/prisma
+RUN cd /app/prisma && pnpm install
+
+COPY --from=builder --chown=nestjs:nestjs /app/generated ./generated
+
+USER nestjs
+
+EXPOSE 3001
+
+# Выполняем миграции перед запуском приложения
+CMD sh -c "cd prisma && npx prisma migrate deploy && cd .. && node dist/main.js"

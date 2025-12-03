@@ -135,10 +135,10 @@ export default function RecordPage({ id }: RecordPageProps) {
 								Новый документ
 							</h2>
 						)}
-						{record.description ? (
+						{record.summary ? (
 							<p className="text-muted-foreground">
-								{typeof record.description === "string"
-									? record.description
+								{typeof record.summary === "string"
+									? record.summary
 									: ""}
 							</p>
 						) : (

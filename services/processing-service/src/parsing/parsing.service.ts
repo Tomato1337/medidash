@@ -38,13 +38,42 @@ export class ParsingService {
 	}
 
 	/**
-	 * Скачивает и парсит PDF документ
+	 * Скачивает и парсит документ (PDF или TXT)
+	 * Определяет тип по расширению файла
 	 */
-	async parseDocument(objectName: string): Promise<ParsedContent> {
+	async parseDocument(
+		objectName: string,
+		mimeType?: string,
+	): Promise<ParsedContent> {
 		this.logger.debug(`Downloading document: ${objectName}`)
 
 		const buffer = await this.minioService.downloadFile(objectName)
 
+		// Определяем тип файла по mimeType или расширению
+		const isPdf =
+			mimeType === "application/pdf" ||
+			objectName.toLowerCase().endsWith(".pdf")
+		const isTxt =
+			mimeType === "text/plain" ||
+			objectName.toLowerCase().endsWith(".txt")
+
+		if (isPdf) {
+			return this.parsePdf(buffer)
+		} else if (isTxt) {
+			return this.parseTxt(buffer)
+		} else {
+			// По умолчанию пробуем как PDF
+			this.logger.warn(
+				`Unknown file type for ${objectName}, trying as PDF`,
+			)
+			return this.parsePdf(buffer)
+		}
+	}
+
+	/**
+	 * Парсит PDF документ
+	 */
+	private async parsePdf(buffer: Buffer): Promise<ParsedContent> {
 		this.logger.debug(`Parsing PDF: ${buffer.length} bytes`)
 
 		const pdfData = await pdfParse(buffer)
@@ -56,6 +85,23 @@ export class ParsingService {
 				title: pdfData.info?.Title,
 				author: pdfData.info?.Author,
 				creationDate: pdfData.info?.CreationDate,
+			},
+		}
+	}
+
+	/**
+	 * Парсит TXT документ
+	 */
+	private parseTxt(buffer: Buffer): ParsedContent {
+		this.logger.debug(`Parsing TXT: ${buffer.length} bytes`)
+
+		const text = buffer.toString("utf-8")
+
+		return {
+			text: this.cleanText(text),
+			pageCount: 1, // TXT всегда 1 "страница"
+			metadata: {
+				// TXT файлы не имеют встроенных метаданных
 			},
 		}
 	}

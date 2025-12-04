@@ -8,7 +8,7 @@ import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger"
 import { AppModule } from "./app.module"
 import { ValidationPipe, Logger } from "@nestjs/common"
 import fastifyCookie from "@fastify/cookie"
-import { RecoveryModule } from "./recovery"
+import { RecoveryModule } from "./recovery/recovery.module"
 
 async function bootstrap() {
 	const logger = new Logger("Bootstrap")

@@ -1,19 +1,23 @@
 import { Module } from "@nestjs/common"
 import { ConfigModule } from "@nestjs/config"
-import { PrismaModule } from "./prisma/prisma.module"
 import { HealthModule } from "./health/health.module"
-import configuration from './env/configuration'
-import { validateEnv } from './env/env.schema'
+import { GeminiModule } from "./gemini/gemini.module"
+import { AnonymizationModule } from "./anonymization/anonymization.module"
+import { AiModule } from "./ai/ai.module"
+import { EnvModule } from "./env/env.module"
+import configuration from "./env/configuration"
 
 @Module({
 	imports: [
 		ConfigModule.forRoot({
-                    isGlobal: true,
-                    load: [configuration],
-                    validate: validateEnv,
-                }),
+			isGlobal: true,
+			load: [configuration],
+		}),
+		EnvModule,
 		HealthModule,
-		PrismaModule,
+		GeminiModule,
+		AnonymizationModule,
+		AiModule,
 	],
 })
 export class AppModule {}

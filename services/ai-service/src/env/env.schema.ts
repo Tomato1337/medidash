@@ -2,33 +2,17 @@ import { z } from "zod"
 
 export const envSchema = z.object({
 	NODE_ENV: z.enum(["dev", "prod", "test"]).default("dev"),
-	API_GATEWAY_PORT: z.coerce.number().min(1).max(65535).default(3000),
+	AI_SERVICE_PORT: z.coerce.number().min(1).max(65535).default(3003),
 	LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
 
-	DATABASE_URL: z.url(),
+	// Gemini API
+	GEMINI_API_KEY: z.string().min(1, "GEMINI_API_KEY is required"),
 
-	REDIS_HOST: z.string().default("localhost"),
-	REDIS_PORT: z.coerce.number().default(6379),
-	REDIS_PASSWORD: z.string().optional(),
+	// Anonymizer Service (Python)
+	ANONYMIZER_SERVICE_URL: z.string().url().default("http://localhost:8000"),
 
-	JWT_SECRET: z
-		.string()
-		.min(16, "JWT_SECRET должен содержать минимум 16 символов"),
-	JWT_EXPIRES_IN: z.string().default("15m"),
-	JWT_REFRESH_SECRET: z
-		.string()
-		.min(16, "JWT_REFRESH_SECRET должен содержать минимум 16 символов"),
-	JWT_REFRESH_EXPIRES_IN: z.string().default("7d"),
-
-	CORS_ORIGIN: z.string().default("http://localhost:5173"),
-
-	DOCUMENT_SERVICE_URL: z.url(),
-	PROCESSING_SERVICE_URL: z.url(),
-	AI_SERVICE_URL: z.url(),
-	SEARCH_SERVICE_URL: z.url(),
-
-	RATE_LIMIT_TTL: z.coerce.number().default(60), // seconds
-	RATE_LIMIT_MAX: z.coerce.number().default(100), // requests per TTL
+	// Rate limiting для Gemini API (free tier)
+	GEMINI_RATE_LIMIT_DELAY_MS: z.coerce.number().default(1500), // 1.5 sec между запросами
 })
 
 export type Env = z.infer<typeof envSchema>

@@ -143,15 +143,17 @@ health-helper/
   - `/api/search/*` → Search Service (3004)
   - `/api/processing/*` → Processing Service (3002)
 
-#### 2.2 Document Service ⏳ СЛЕДУЮЩИЙ
-- [ ] Инициализация NestJS проекта
-- [ ] Интеграция Prisma Client
-- [ ] MinIO Client setup
-- [ ] CRUD для Records и Documents
-- [ ] Multer для загрузки файлов
-- [ ] Интеграция с Processing Service через BullMQ
+#### 2.2 Document Service ✅ ЗАВЕРШЕНО
+- [x] Инициализация NestJS проекта (package.json, tsconfig, nest-cli)
+- [x] Интеграция Prisma Client (PrismaModule с global экспортом)
+- [x] MinIO Client setup (MinioService с upload/download/delete)
+- [x] CRUD для Records (RecordsModule с тегами и soft delete)
+- [x] CRUD для Documents (DocumentsModule с загрузкой через multipart)
+- [x] Dockerfile.dev и Dockerfile.prod (multi-stage build)
+- [x] Добавлен в docker-compose.yml (порт 3001)
+- [ ] Интеграция с Processing Service через Redis Pub/Sub (будет в 2.3)
 
-#### 2.3 Processing Service
+#### 2.3 Processing Service ⏳ СЛЕДУЮЩИЙ
 - [ ] Инициализация NestJS проекта
 - [ ] BullMQ workers настройка
 - [ ] PDF парсинг (pdf-parse)

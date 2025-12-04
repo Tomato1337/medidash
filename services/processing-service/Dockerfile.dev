@@ -11,7 +11,7 @@ RUN npm ci
 COPY prisma/schema.prisma /app/prisma/schema.prisma
 COPY prisma/package.json prisma/package-lock.json /app/prisma/
 
-RUN cd /app/prisma && npm ci
+RUN cd /app/prisma && npm ci && npx prisma generate
 
 COPY services/shared-types /app/shared-types
 

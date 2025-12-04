@@ -1,6 +1,9 @@
 import { Injectable, Logger } from "@nestjs/common"
 import { GeminiService } from "../gemini/gemini.service"
-import { AnonymizationService, PiiMapping } from "../anonymization/anonymization.service"
+import {
+	AnonymizationService,
+	PiiMapping,
+} from "../anonymization/anonymization.service"
 
 export interface ProcessChunkResult {
 	anonymizedText: string
@@ -92,9 +95,7 @@ export class AiService {
 	/**
 	 * Полная обработка документа: анонимизация всех чанков, эмбеддинги, саммари
 	 */
-	async processDocument(
-		chunks: string[],
-	): Promise<ProcessDocumentResult> {
+	async processDocument(chunks: string[]): Promise<ProcessDocumentResult> {
 		let totalTokens = 0
 
 		// 1. Обрабатываем все чанки (анонимизация + эмбеддинги)
@@ -136,7 +137,10 @@ export class AiService {
 		imageBuffer: Buffer,
 		mimeType: string,
 	): Promise<{ text: string; confidence: number }> {
-		const result = await this.anonymizationService.ocr(imageBuffer, mimeType)
+		const result = await this.anonymizationService.ocr(
+			imageBuffer,
+			mimeType,
+		)
 		return {
 			text: result.text,
 			confidence: result.confidence,

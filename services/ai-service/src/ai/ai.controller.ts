@@ -90,7 +90,9 @@ export class AiController {
 	async generateEmbeddingsBatch(
 		@Body() dto: EmbeddingsBatchRequestDto,
 	): Promise<EmbeddingsBatchResponseDto> {
-		this.logger.log(`Generating embeddings batch for ${dto.texts.length} texts`)
+		this.logger.log(
+			`Generating embeddings batch for ${dto.texts.length} texts`,
+		)
 
 		const results: number[][] = []
 		let totalTokens = 0

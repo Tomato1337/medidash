@@ -28,7 +28,8 @@ export class EmbeddingsBatchRequestDto {
 
 export class SummaryRequestDto {
 	@ApiProperty({
-		description: "Текст документа для генерации саммари (желательно анонимизированный)",
+		description:
+			"Текст документа для генерации саммари (желательно анонимизированный)",
 		example: "Анамнез: пациент обратился с жалобами на...",
 	})
 	@IsString()
@@ -48,7 +49,8 @@ export class AnonymizeRequestDto {
 
 export class ProcessChunksRequestDto {
 	@ApiProperty({
-		description: "Массив текстовых чанков для полной обработки (анонимизация + эмбеддинги)",
+		description:
+			"Массив текстовых чанков для полной обработки (анонимизация + эмбеддинги)",
 		example: ["Чанк 1: текст документа...", "Чанк 2: продолжение..."],
 	})
 	@IsArray()
@@ -114,7 +116,8 @@ export class EmbeddingsBatchResponseDto {
 export class SummaryResponseDto {
 	@ApiProperty({
 		description: "Сгенерированное резюме документа",
-		example: "Пациент обратился с жалобами на головную боль. Диагноз: мигрень. Назначено лечение...",
+		example:
+			"Пациент обратился с жалобами на головную боль. Диагноз: мигрень. Назначено лечение...",
 	})
 	summary: string
 

@@ -3,11 +3,15 @@ version: "3.8"
 networks:
     medical-docs-network:
         driver: bridge
+        internal: true
+    frontend:
+        driver: bridge
 
 volumes:
     postgres_data:
     redis_data:
     minio_data:
+    easyocr_models:
 
 services:
     postgres:
@@ -25,6 +29,7 @@ services:
             - postgres_data:/var/lib/postgresql/data
         networks:
             - medical-docs-network
+            - frontend
         healthcheck:
             test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
             interval: 10s
@@ -63,14 +68,17 @@ services:
         environment:
             MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
             MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+        # MinIO is only accessible internally on port 9000
+        # External access is via nginx proxy on port 9000
+        expose:
+            - "9000"
         ports:
-            - ${MINIO_PORT:-9000}:9000
             - ${MINIO_CONSOLE_PORT:-9001}:9001
         volumes:
             - minio_data:/data
         networks:
             - medical-docs-network
-        command: server /data --console-address ":9001"
+        command: server /data --console-address ":9001" --address ":9000"
         healthcheck:
             test:
                 ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
@@ -87,13 +95,42 @@ services:
                 condition: service_healthy
         networks:
             - medical-docs-network
+            - frontend
         entrypoint: >
             /bin/sh -c "
             mc alias set myminio http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin};
             mc mb myminio/${MINIO_BUCKET_NAME:-medical-documents} --ignore-existing;
-            mc anonymous set download myminio/${MINIO_BUCKET_NAME:-medical-documents};
+            echo 'Bucket created. Access is private by default.';
             exit 0;
             "
+
+    nginx:
+        image: nginx:alpine
+        container_name: medical-docs-nginx
+        restart: unless-stopped
+        ports:
+            - "9000:9000"
+        volumes:
+            - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+        networks:
+            - medical-docs-network
+            - frontend
+        depends_on:
+            - minio
+        healthcheck:
+            test:
+                [
+                    "CMD",
+                    "wget",
+                    "--quiet",
+                    "--tries=1",
+                    "--spider",
+                    "http://localhost:9000",
+                ]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 5s
 
     api-gateway:
         build:
@@ -102,12 +139,75 @@ services:
         container_name: medical-docs-api-gateway
         restart: unless-stopped
         ports:
-            - ${API_GATEWAY_PORT:-3000}:3000
+            - ${API_GATEWAY_PORT:-3000}:${API_GATEWAY_PORT:-3000}
         environment:
             NODE_ENV: dev
             DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-medical_docs}?schema=public
             REDIS_HOST: redis
             REDIS_PORT: 6379
+            DOCUMENT_SERVICE_URL: http://document-service:${DOCUMENT_SERVICE_PORT:-3001}
+            PROCESSING_SERVICE_URL: http://processing-service:${PROCESSING_SERVICE_PORT:-3002}
+        env_file:
+            - .env
+        depends_on:
+            postgres:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+            minio:
+                condition: service_healthy
+            document-service:
+                condition: service_healthy
+            processing-service:
+                condition: service_healthy
+        networks:
+            - medical-docs-network
+            - frontend
+        volumes:
+            - ./services/api-gateway/src:/app/src
+            - ./prisma:/app/prisma
+            - /app/node_modules
+            - /app/prisma/node_modules
+        healthcheck:
+            test:
+                [
+                    "CMD",
+                    "node",
+                    "-e",
+                    "require('http').get('http://localhost:${API_GATEWAY_PORT:-3000}/api/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1))",
+                ]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 60s
+    processing-service:
+        build:
+            context: .
+            dockerfile: services/processing-service/Dockerfile.dev
+        container_name: medical-docs-processing-service
+        restart: unless-stopped
+        ports:
+            - ${PROCESSING_SERVICE_PORT:-3002}:${PROCESSING_SERVICE_PORT:-3002}
+        environment:
+            NODE_ENV: dev
+            DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-medical_docs}?schema=public
+            # Redis for BullMQ and Pub/Sub
+            REDIS_HOST: redis
+            REDIS_PORT: 6379
+            # MinIO for file access
+            MINIO_ENDPOINT: minio
+            MINIO_PORT: 9000
+            MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+            MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+            MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME:-medical-documents}
+            MINIO_USE_SSL: "false"
+            # AI Service URL
+            AI_SERVICE_URL: http://ai-service:${AI_SERVICE_PORT:-3003}
+            # Processing settings
+            PARSING_CONCURRENCY: ${PARSING_CONCURRENCY:-2}
+            AI_PROCESSING_CONCURRENCY: ${AI_PROCESSING_CONCURRENCY:-1}
+            CHUNK_SIZE: ${CHUNK_SIZE:-800}
+            CHUNK_OVERLAP: ${CHUNK_OVERLAP:-100}
         env_file:
             - .env
         depends_on:
@@ -120,19 +220,135 @@ services:
         networks:
             - medical-docs-network
         volumes:
-            - ./services/api-gateway/src:/app/src
+            - ./services/processing-service/src:/app/src
+            - ./services/shared-types:/app/shared-types
             - ./prisma:/app/prisma
             - /app/node_modules
             - /app/prisma/node_modules
+            - /app/shared-types/node_modules
         healthcheck:
             test:
                 [
                     "CMD",
                     "node",
                     "-e",
-                    "require('http').get('http://localhost:3000/api/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1))",
+                    "require('http').get('http://localhost:${PROCESSING_SERVICE_PORT:-3002}/api/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1))",
                 ]
             interval: 30s
             timeout: 10s
             retries: 3
-            start_period: 40s
+            start_period: 60s
+
+    document-service:
+        build:
+            context: .
+            dockerfile: services/document-service/Dockerfile.dev
+        container_name: medical-docs-document-service
+        restart: unless-stopped
+        ports:
+            - ${DOCUMENT_SERVICE_PORT:-3001}:${DOCUMENT_SERVICE_PORT:-3001}
+        environment:
+            NODE_ENV: dev
+            DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-medical_docs}?schema=public
+            REDIS_HOST: redis
+            REDIS_PORT: 6379
+            MINIO_ENDPOINT: minio
+            MINIO_PORT: 9000
+            MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+            MINIO_EXTERNAL_ENDPOINT: ${MINIO_EXTERNAL_ENDPOINT:-localhost}
+            MINIO_EXTERNAL_PORT: ${MINIO_PORT:-9000}
+            MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+            MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME:-medical-documents}
+            MINIO_USE_SSL: "false"
+        env_file:
+            - .env
+        depends_on:
+            postgres:
+                condition: service_healthy
+            minio:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+        networks:
+            - medical-docs-network
+        volumes:
+            - ./services/document-service/src:/app/src
+            - ./services/shared-types:/app/shared-types
+            - ./prisma:/app/prisma
+            - /app/node_modules
+            - /app/prisma/node_modules
+            - /app/shared-types/node_modules
+        healthcheck:
+            test:
+                [
+                    "CMD",
+                    "node",
+                    "-e",
+                    "require('http').get('http://localhost:${DOCUMENT_SERVICE_PORT:-3001}/api/records', (res) => process.exit(res.statusCode < 500 ? 0 : 1))",
+                ]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 60s
+
+    ai-service:
+        build:
+            context: .
+            dockerfile: services/ai-service/Dockerfile.dev
+        container_name: medical-docs-ai-service
+        restart: unless-stopped
+        ports:
+            - ${AI_SERVICE_PORT:-3003}:${AI_SERVICE_PORT:-3003}
+        environment:
+            NODE_ENV: dev
+            AI_SERVICE_PORT: ${AI_SERVICE_PORT:-3003}
+            GEMINI_API_KEY: ${GEMINI_API_KEY}
+            ANONYMIZER_SERVICE_URL: http://anonymizer-service:8000
+            GEMINI_RATE_LIMIT_DELAY_MS: ${GEMINI_RATE_LIMIT_DELAY_MS:-1500}
+        env_file:
+            - .env
+        depends_on:
+            anonymizer-service:
+                condition: service_healthy
+        networks:
+            - medical-docs-network
+        volumes:
+            - ./services/ai-service/src:/app/src
+            - ./services/shared-types:/app/shared-types
+            - ./prisma:/app/prisma
+            - /app/node_modules
+            - /app/prisma/node_modules
+            - /app/shared-types/node_modules
+        healthcheck:
+            test:
+                [
+                    "CMD",
+                    "node",
+                    "-e",
+                    "require('http').get('http://localhost:${AI_SERVICE_PORT:-3003}/api/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1))",
+                ]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 60s
+
+    anonymizer-service:
+        build:
+            context: ./services/anonymizer-service
+            dockerfile: Dockerfile
+        container_name: medical-docs-anonymizer-service
+        restart: unless-stopped
+        ports:
+            - ${ANONYMIZER_SERVICE_PORT:-8000}:8000
+        environment:
+            LOG_LEVEL: ${LOG_LEVEL:-info}
+        volumes:
+            - easyocr_models:/root/.EasyOCR
+        networks:
+            - medical-docs-network
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+            interval: 30s
+            timeout: 120s
+            retries: 3
+            start_period: 180s

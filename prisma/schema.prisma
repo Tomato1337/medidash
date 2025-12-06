@@ -139,14 +139,14 @@ model Document {
 
 // DocumentChunk - часть документа с векторным представлением для семантического поиска
 model DocumentChunk {
-    id         String                       @id @default(cuid())
+    id         String                      @id @default(cuid())
     documentId String
     userId     String // Денормализация для быстрого доступа
-    content    String                       @db.Text // Анонимизированный текст чанка
+    content    String                      @db.Text // Анонимизированный текст чанка
     order      Int // Порядковый номер чанка в документе
-    embedding  Unsupported("vector(1536)")? // Векторное представление (OpenAI embeddings)
-    createdAt  DateTime                     @default(now())
-    updatedAt  DateTime                     @updatedAt
+    embedding  Unsupported("vector(768)")? // Векторное представление (Gemini text-embedding-004: 768 dimensions)
+    createdAt  DateTime                    @default(now())
+    updatedAt  DateTime                    @updatedAt
 
     // Relations
     document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)

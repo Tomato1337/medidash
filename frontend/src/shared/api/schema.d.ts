@@ -178,6 +178,127 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/processing/records/{recordId}/retry/{phase}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Перезапуск обработки документов
+         * @description
+         *     Перезапускает обработку документов Record для указанной фазы.
+         *
+         *     **Фаза "parsing":**
+         *     - Находит документы со статусом FAILED и failedPhase="parsing"
+         *     - Сбрасывает статус на PARSING
+         *     - Добавляет задачи в очередь парсинга
+         *
+         *     **Фаза "processing":**
+         *     - Находит документы со статусом FAILED и failedPhase="processing"
+         *     - Также включает документы со статусом PROCESSING (спарсены, но AI упал)
+         *     - Добавляет задачу в очередь AI обработки
+         *
+         *     Использует существующие данные: для фазы "processing" повторный парсинг не выполняется.
+         *
+         */
+        post: operations["RecoveryController_retryProcessing"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/processing/records/{recordId}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Получить статус обработки записи
+         * @description
+         *     Возвращает текущий статус обработки Record и всех его документов.
+         *
+         *     **Информация включает:**
+         *     - Общий статус записи (UPLOADING, PARSING, PROCESSING, COMPLETED, FAILED)
+         *     - Статус каждого документа
+         *     - Фаза ошибки для документов со статусом FAILED
+         *     - Статистика очередей (ожидающие, активные, неудачные задачи)
+         *
+         */
+        get: operations["RecoveryController_getProcessingStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/processing/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Проверка здоровья сервиса
+         * @description
+         *     Возвращает информацию о состоянии Processing Service.
+         *
+         *     **Проверяется:**
+         *     - Подключение к Redis
+         *     - Подключение к базе данных PostgreSQL
+         *     - Доступность очереди парсинга
+         *     - Доступность очереди AI обработки
+         *
+         */
+        get: operations["RecoveryController_healthCheck"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/processing/queues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Получить статус очередей
+         * @description
+         *     Возвращает статистику по очередям обработки.
+         *
+         *     **Очереди:**
+         *     - **parsing-queue**: Очередь парсинга документов (concurrency: 2)
+         *     - **ai-processing-queue**: Очередь AI обработки (concurrency: 1)
+         *
+         *     **Статистика включает:**
+         *     - Количество задач в ожидании
+         *     - Количество активных задач
+         *     - Количество неудачных задач
+         *
+         */
+        get: operations["RecoveryController_getQueuesStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -458,7 +579,7 @@ export interface components {
             fileSize: number;
             description?: Record<string, never>;
             /** @enum {string} */
-            status: "UPLOADING" | "PROCESSING" | "COMPLETED" | "FAILED";
+            status: "UPLOADING" | "PROCESSING" | "PARSING" | "COMPLETED" | "FAILED";
             errorMessage?: Record<string, never>;
             processedAt?: Record<string, never>;
             /** Format: date-time */
@@ -475,6 +596,155 @@ export interface components {
             fileSize: number;
             /** @example record-id-123 */
             recordId: string;
+        };
+        RecoveryResponseDto: {
+            /**
+             * @description Успешность операции
+             * @example true
+             */
+            success: boolean;
+            /**
+             * @description ID записи
+             * @example clx1234567890
+             */
+            recordId: string;
+            /**
+             * @description Фаза обработки
+             * @example parsing
+             * @enum {string}
+             */
+            phase: "parsing" | "processing";
+            /**
+             * @description Количество документов в обработке
+             * @example 3
+             */
+            documentsCount: number;
+            /**
+             * @description Сообщение о результате операции
+             * @example Started parsing recovery for 3 documents
+             */
+            message: string;
+        };
+        DocumentStatusDto: {
+            /**
+             * @description ID документа
+             * @example doc_123456
+             */
+            id: string;
+            /**
+             * @description Статус документа
+             * @example PROCESSING
+             * @enum {string}
+             */
+            status: "UPLOADING" | "PARSING" | "PROCESSING" | "COMPLETED" | "FAILED";
+            /**
+             * @description Фаза, на которой произошла ошибка
+             * @example parsing
+             * @enum {string|null}
+             */
+            failedPhase?: "parsing" | "processing" | null;
+        };
+        QueueStatsDto: {
+            /**
+             * @description Количество задач в ожидании
+             * @example 5
+             */
+            waiting: number;
+            /**
+             * @description Количество активных задач
+             * @example 2
+             */
+            active: number;
+            /**
+             * @description Количество неудачных задач
+             * @example 1
+             */
+            failed: number;
+        };
+        ProcessingStatusResponseDto: {
+            /**
+             * @description ID записи
+             * @example clx1234567890
+             */
+            recordId: string;
+            /**
+             * @description Общий статус обработки записи
+             * @example PROCESSING
+             * @enum {string}
+             */
+            status: "UPLOADING" | "PARSING" | "PROCESSING" | "COMPLETED" | "FAILED";
+            /** @description Список документов записи */
+            documents: components["schemas"]["DocumentStatusDto"][];
+            /** @description Статистика очереди парсинга */
+            parsingQueueStats: components["schemas"]["QueueStatsDto"];
+            /** @description Статистика очереди AI обработки */
+            aiQueueStats: components["schemas"]["QueueStatsDto"];
+        };
+        ConnectionsStatusDto: {
+            /**
+             * @description Статус подключения к Redis
+             * @example connected
+             */
+            redis: string;
+            /**
+             * @description Статус подключения к базе данных
+             * @example connected
+             */
+            database: string;
+            /**
+             * @description Статус очереди парсинга
+             * @example ready
+             */
+            parsingQueue: string;
+            /**
+             * @description Статус очереди AI обработки
+             * @example ready
+             */
+            aiProcessingQueue: string;
+        };
+        HealthCheckResponseDto: {
+            /**
+             * @description Статус сервиса
+             * @example ok
+             */
+            status: string;
+            /**
+             * @description Название сервиса
+             * @example processing-service
+             */
+            service: string;
+            /**
+             * @description Время работы сервиса (секунды)
+             * @example 12345.67
+             */
+            uptime: number;
+            /**
+             * @description Временная метка проверки
+             * @example 2025-12-03T12:00:00.000Z
+             */
+            timestamp: string;
+            /** @description Статус подключений */
+            connections: components["schemas"]["ConnectionsStatusDto"];
+        };
+        QueueHealthDto: {
+            /**
+             * @description Название очереди
+             * @example parsing-queue
+             */
+            name: string;
+            /**
+             * @description Статус очереди
+             * @example ready
+             */
+            status: string;
+            /** @description Статистика очереди */
+            stats: components["schemas"]["QueueStatsDto"];
+        };
+        QueuesStatusResponseDto: {
+            /** @description Информация об очереди парсинга */
+            parsing: components["schemas"]["QueueHealthDto"];
+            /** @description Информация об очереди AI обработки */
+            aiProcessing: components["schemas"]["QueueHealthDto"];
         };
         AuthRegisterDto: {
             /**
@@ -862,6 +1132,115 @@ export interface operations {
                         filename?: string;
                         mimeType?: string;
                     };
+                };
+            };
+        };
+    };
+    RecoveryController_retryProcessing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description ID записи (Record) */
+                recordId: string;
+                /** @description Фаза обработки для перезапуска */
+                phase: "parsing" | "processing";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Обработка успешно перезапущена */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecoveryResponseDto"];
+                };
+            };
+            /** @description Неверная фаза или нет документов для перезапуска */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Record не найден */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RecoveryController_getProcessingStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description ID записи (Record) */
+                recordId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Статус обработки записи */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcessingStatusResponseDto"];
+                };
+            };
+            /** @description Record не найден */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RecoveryController_healthCheck: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Состояние сервиса */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HealthCheckResponseDto"];
+                };
+            };
+        };
+    };
+    RecoveryController_getQueuesStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Статус очередей */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueuesStatusResponseDto"];
                 };
             };
         };

@@ -53,9 +53,10 @@ export class ParsingProcessor extends WorkerHost {
 				},
 			})
 
-			// Скачиваем и парсим PDF (используем minioObjectKey)
+			// Скачиваем и парсим документ (PDF или TXT)
 			const content = await this.parsingService.parseDocument(
 				document.minioObjectKey,
+				document.mimeType,
 			)
 
 			// Разбиваем на чанки

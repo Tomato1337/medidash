@@ -1,0 +1,15 @@
+# Web framework
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-multipart==0.0.6
+
+# Data validation
+pydantic==2.5.3
+pydantic-settings==2.1.0
+
+# NLP для анонимизации (русский язык)
+natasha==1.6.0
+
+# OCR (PyTorch устанавливается отдельно в Dockerfile как CPU-версия)
+easyocr==1.7.1
+pillow==10.2.0

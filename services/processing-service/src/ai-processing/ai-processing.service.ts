@@ -1,8 +1,8 @@
-import { Injectable, Logger } from "@nestjs/common"
-import { ConfigService } from "@nestjs/config"
+import { Injectable, Logger, HttpException, HttpStatus } from "@nestjs/common"
 import { DocumentStatus, PiiType } from "generated/prisma"
 import { PrismaService } from "../prisma/prisma.service"
 import { EnvService } from "src/env/env.service"
+import axios, { AxiosInstance } from "axios"
 
 // Динамический импорт для ESM модуля tonl
 let encodeTONL: (text: string) => string
@@ -64,6 +64,7 @@ export interface ProcessedChunk {
 export class AiProcessingService {
 	private readonly logger = new Logger(AiProcessingService.name)
 	private readonly aiServiceUrl: string
+	private readonly httpClient: AxiosInstance
 	private tonlLoaded = false
 
 	constructor(
@@ -71,6 +72,17 @@ export class AiProcessingService {
 		private prismaService: PrismaService,
 	) {
 		this.aiServiceUrl = this.configService.get("AI_SERVICE_URL")
+
+		// Создаём HTTP клиент для AI Service
+		this.httpClient = axios.create({
+			baseURL: this.aiServiceUrl,
+			timeout: 60000, // 60 секунд для AI операций
+			headers: {
+				"Content-Type": "application/json",
+			},
+		})
+
+		this.logger.log(`✅ AI Service configured: ${this.aiServiceUrl}`)
 		this.initTonl()
 	}
 
@@ -149,37 +161,76 @@ export class AiProcessingService {
 	}
 
 	/**
-	 * Анонимизирует текст чанка
-	 * TODO: Реализовать вызов AI Service для реальной анонимизации
+	 * Анонимизирует текст чанка через AI Service
 	 */
 	async anonymizeChunk(content: string): Promise<AnonymizationResult> {
-		// TODO: Вызов AI Service /ai/anonymize
-		// Пока заглушка — возвращаем оригинальный текст без изменений
-		this.logger.warn(
-			"🔶 Using mock anonymization - TODO: implement AI Service /ai/anonymize call",
-		)
+		try {
+			const response = await this.httpClient.post<{
+				anonymizedText: string
+				piiMappings: Array<{
+					original: string
+					replacement: string
+					type: string
+				}>
+			}>("/api/ai/anonymize", { text: content })
 
-		return {
-			anonymizedContent: content,
-			piiMappings: [],
+			this.logger.debug(
+				`Anonymized chunk: ${response.data.piiMappings.length} PII items found`,
+			)
+
+			return {
+				anonymizedContent: response.data.anonymizedText,
+				piiMappings: response.data.piiMappings.map((pii) => ({
+					original: pii.original,
+					replacement: pii.replacement,
+					type: pii.type as PiiType,
+				})),
+			}
+		} catch (error) {
+			if (axios.isAxiosError(error)) {
+				this.logger.error(
+					`Anonymization failed: ${error.response?.data?.message || error.message}`,
+				)
+				throw new HttpException(
+					`AI Service anonymization error: ${error.response?.data?.message || error.message}`,
+					error.response?.status || HttpStatus.SERVICE_UNAVAILABLE,
+				)
+			}
+			throw error
 		}
 	}
 
 	/**
-	 * Генерирует эмбеддинг для анонимизированного текста
-	 * TODO: Реализовать вызов AI Service для генерации реальных эмбеддингов
+	 * Генерирует эмбеддинг для анонимизированного текста через AI Service
 	 *
 	 * ВАЖНО: Embeddings генерируются на АНОНИМИЗИРОВАННОМ тексте!
 	 * TONL НЕ используется для embeddings, только для LLM вызовов (summary)
+	 * Gemini text-embedding-004 возвращает 768-dimensional вектор
 	 */
-	async generateEmbedding(_text: string): Promise<number[]> {
-		// TODO: Вызов AI Service /embeddings
-		// Пока заглушка — возвращаем нулевой вектор 1536 dimensions (OpenAI format)
-		this.logger.warn(
-			"🔶 Using mock embeddings - TODO: implement AI Service /embeddings call",
-		)
+	async generateEmbedding(text: string): Promise<number[]> {
+		try {
+			const response = await this.httpClient.post<{
+				embedding: number[]
+				tokensUsed: number
+			}>("/api/ai/embeddings", { text })
 
-		return Array.from({ length: 1536 }, () => 0)
+			this.logger.debug(
+				`Generated embedding: ${response.data.embedding.length} dimensions`,
+			)
+
+			return response.data.embedding
+		} catch (error) {
+			if (axios.isAxiosError(error)) {
+				this.logger.error(
+					`Embedding generation failed: ${error.response?.data?.message || error.message}`,
+				)
+				throw new HttpException(
+					`AI Service embedding error: ${error.response?.data?.message || error.message}`,
+					error.response?.status || HttpStatus.SERVICE_UNAVAILABLE,
+				)
+			}
+			throw error
+		}
 	}
 
 	/**
@@ -195,7 +246,14 @@ export class AiProcessingService {
 			// 1. Анонимизируем текст
 			const { anonymizedContent, piiMappings } =
 				await this.anonymizeChunk(chunk.content)
-
+			this.prismaService.documentChunk.update({
+				data: {
+					content: anonymizedContent,
+				},
+				where: {
+					id: chunk.id,
+				},
+			})
 			// 2. Генерируем эмбеддинг на анонимизированном тексте
 			const embedding = await this.generateEmbedding(anonymizedContent)
 
@@ -246,26 +304,42 @@ export class AiProcessingService {
 	/**
 	 * Генерирует саммари документа через AI Service
 	 * TONL используется здесь для экономии токенов (это LLM вызов)
-	 * TODO: Реализовать вызов AI Service для генерации реального саммари
 	 */
 	async generateSummary(
 		text: string,
 	): Promise<{ summary: string; tokensUsed: number }> {
-		const { originalLength, optimizedLength } = this.optimizeWithTONL(text)
+		const { optimized, originalLength, optimizedLength } =
+			this.optimizeWithTONL(text)
 
 		this.logger.debug(
 			`Generating summary for ${originalLength} chars (optimized to ${optimizedLength} with TONL)`,
 		)
 
-		// TODO: Вызов AI Service /summary
-		// Пока заглушка — возвращаем placeholder
-		this.logger.warn(
-			"🔶 Using mock summary - TODO: implement AI Service /summary call",
-		)
+		try {
+			const response = await this.httpClient.post<{
+				summary: string
+				tokensUsed: number
+			}>("/api/ai/summary", { text: optimized })
 
-		return {
-			summary: `[AI Summary placeholder - ${text.length} chars analyzed, ${text.split(/\s+/).length} words]`,
-			tokensUsed: 0,
+			this.logger.debug(
+				`Generated summary: ${response.data.summary.length} chars, ${response.data.tokensUsed} tokens`,
+			)
+
+			return {
+				summary: response.data.summary,
+				tokensUsed: response.data.tokensUsed,
+			}
+		} catch (error) {
+			if (axios.isAxiosError(error)) {
+				this.logger.error(
+					`Summary generation failed: ${error.response?.data?.message || error.message}`,
+				)
+				throw new HttpException(
+					`AI Service summary error: ${error.response?.data?.message || error.message}`,
+					error.response?.status || HttpStatus.SERVICE_UNAVAILABLE,
+				)
+			}
+			throw error
 		}
 	}
 

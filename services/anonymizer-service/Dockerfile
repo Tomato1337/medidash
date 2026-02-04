@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
+<<<<<<< HEAD
 # Обновляем pip
 RUN pip install --upgrade pip
 
@@ -22,6 +23,11 @@ RUN pip install torch torchvision --index-url https://download.pytorch.org/whl/c
 # Копируем requirements и устанавливаем остальные зависимости
 COPY requirements.txt .
 RUN pip install --retries 5 --timeout 60 -r requirements.txt
+=======
+# Копируем requirements и устанавливаем зависимости
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+>>>>>>> 8408edc19e0ec428176702d3a873f78afe46d62a
 
 # Предзагрузка моделей Natasha при сборке
 RUN python -c "from natasha import NewsEmbedding; NewsEmbedding()"

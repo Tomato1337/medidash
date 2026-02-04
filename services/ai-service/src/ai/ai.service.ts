@@ -15,6 +15,7 @@ export interface ProcessDocumentResult {
 	chunks: ProcessChunkResult[]
 	summary: string
 	title: string
+<<<<<<< HEAD
 	report: string
 	tags: Array<{
 		name: string
@@ -22,6 +23,9 @@ export interface ProcessDocumentResult {
 		color: string
 		isSystem: boolean
 	}>
+=======
+	tags: string[]
+>>>>>>> 8408edc19e0ec428176702d3a873f78afe46d62a
 	tokensUsed: number
 }
 
@@ -82,6 +86,7 @@ export class AiService {
 	 * Генерирует саммари документа
 	 */
 	async generateSummary(text: string): Promise<{
+<<<<<<< HEAD
 		title: string
 		summary: string
 		report: string
@@ -91,6 +96,9 @@ export class AiService {
 			color: string
 			isSystem: boolean
 		}>
+=======
+		summary: string
+>>>>>>> 8408edc19e0ec428176702d3a873f78afe46d62a
 		tokensUsed: number
 	}> {
 		return this.geminiService.generateSummary(text)
@@ -120,6 +128,7 @@ export class AiService {
 			.map((c) => c.anonymizedText)
 			.join("\n\n")
 
+<<<<<<< HEAD
 		// 3. Генерируем саммари (включает title, summary, report, tags)
 		const {
 			title,
@@ -130,6 +139,19 @@ export class AiService {
 		} = await this.geminiService.generateSummary(allAnonymizedText)
 		totalTokens += summaryTokens
 
+=======
+		// 3. Генерируем саммари
+		const { summary, tokensUsed: summaryTokens } =
+			await this.geminiService.generateSummary(allAnonymizedText)
+		totalTokens += summaryTokens
+
+		// 4. Генерируем заголовок
+		const title = await this.geminiService.generateTitle(allAnonymizedText)
+
+		// 5. Извлекаем теги
+		const tags = await this.geminiService.extractTags(allAnonymizedText)
+
+>>>>>>> 8408edc19e0ec428176702d3a873f78afe46d62a
 		this.logger.log(
 			`Document processed: ${processedChunks.length} chunks, ${summary.length} chars summary`,
 		)
@@ -138,7 +160,10 @@ export class AiService {
 			chunks: processedChunks,
 			summary,
 			title,
+<<<<<<< HEAD
 			report,
+=======
+>>>>>>> 8408edc19e0ec428176702d3a873f78afe46d62a
 			tags,
 			tokensUsed: totalTokens,
 		}

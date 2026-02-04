@@ -88,8 +88,12 @@ export class EmbeddingResponseDto {
 	@ApiProperty({
 		description: "Векторное представление (768 dimensions для Gemini)",
 		example: [0.123, -0.456, 0.789],
+<<<<<<< HEAD
 		type: "array",
 		items: { type: "number" },
+=======
+		type: [Number],
+>>>>>>> 8408edc19e0ec428176702d3a873f78afe46d62a
 	})
 	embedding: number[]
 
@@ -103,8 +107,12 @@ export class EmbeddingResponseDto {
 export class EmbeddingsBatchResponseDto {
 	@ApiProperty({
 		description: "Массив эмбеддингов",
+<<<<<<< HEAD
 		type: "array",
 		items: { type: "array", items: { type: "number" } },
+=======
+		type: [[Number]],
+>>>>>>> 8408edc19e0ec428176702d3a873f78afe46d62a
 	})
 	embeddings: number[][]
 
@@ -152,8 +160,12 @@ export class ProcessedChunkDto {
 
 	@ApiProperty({
 		description: "Эмбеддинг (768 dimensions)",
+<<<<<<< HEAD
 		type: "array",
 		items: { type: "number" },
+=======
+		type: [Number],
+>>>>>>> 8408edc19e0ec428176702d3a873f78afe46d62a
 	})
 	embedding: number[]
 
@@ -164,6 +176,7 @@ export class ProcessedChunkDto {
 	piiMappings: PiiMappingDto[]
 }
 
+<<<<<<< HEAD
 export class TagDto {
 	@ApiProperty({
 		description: "Название тега",
@@ -190,6 +203,8 @@ export class TagDto {
 	isSystem: boolean
 }
 
+=======
+>>>>>>> 8408edc19e0ec428176702d3a873f78afe46d62a
 export class ProcessChunksResponseDto {
 	@ApiProperty({
 		description: "Обработанные чанки",
@@ -208,6 +223,7 @@ export class ProcessChunksResponseDto {
 	title: string
 
 	@ApiProperty({
+<<<<<<< HEAD
 		description: "Подробный отчёт о документе",
 	})
 	report: string
@@ -217,6 +233,12 @@ export class ProcessChunksResponseDto {
 		type: [TagDto],
 	})
 	tags: TagDto[]
+=======
+		description: "Извлечённые теги",
+		type: [String],
+	})
+	tags: string[]
+>>>>>>> 8408edc19e0ec428176702d3a873f78afe46d62a
 
 	@ApiProperty({
 		description: "Общее количество использованных токенов",

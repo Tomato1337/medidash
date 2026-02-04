@@ -45,7 +45,11 @@ export class AnonymizationService {
 	async anonymize(text: string): Promise<AnonymizationResult> {
 		try {
 			const response = await this.client.post<AnonymizationResult>(
+<<<<<<< HEAD
 				"api/anonymize",
+=======
+				"/anonymize",
+>>>>>>> 8408edc19e0ec428176702d3a873f78afe46d62a
 				{ text },
 			)
 
@@ -77,7 +81,11 @@ export class AnonymizationService {
 			// Конвертируем Buffer в base64
 			const base64Image = imageBuffer.toString("base64")
 
+<<<<<<< HEAD
 			const response = await this.client.post<OcrResult>("api/ocr", {
+=======
+			const response = await this.client.post<OcrResult>("/ocr", {
+>>>>>>> 8408edc19e0ec428176702d3a873f78afe46d62a
 				image: base64Image,
 				mimeType,
 			})

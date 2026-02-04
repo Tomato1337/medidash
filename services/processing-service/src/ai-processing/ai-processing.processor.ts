@@ -2,7 +2,7 @@ import { Processor, WorkerHost, OnWorkerEvent } from "@nestjs/bullmq"
 import { Logger } from "@nestjs/common"
 import { Job } from "bullmq"
 import { DocumentStatus } from "generated/prisma"
-import { AiProcessingJobData } from "@shared-types"
+import { AiProcessingJobData, FailedPhase } from "@shared-types"
 import { AiProcessingService } from "./ai-processing.service"
 import { EventsService } from "../events/events.service"
 import { QUEUES } from "../queue/queue.constants"
@@ -73,15 +73,18 @@ export class AiProcessingProcessor extends WorkerHost {
 				.join("\n\n")
 
 			// Генерируем общий саммари для Record (используем TONL для экономии)
-			const { summary, tokensUsed } =
+			const { summary, report, tags, tokensUsed, title } =
 				await this.aiProcessingService.generateSummary(
 					allAnonymizedText,
 				)
 
-			// Обновляем Record с саммари
+			await this.aiProcessingService.saveTagsForRecord(recordId, tags)
+
 			await this.aiProcessingService.updateRecordWithAiResults(
 				recordId,
+				title,
 				summary,
+				report,
 			)
 
 			// Обновляем статус всех документов на COMPLETED
@@ -129,7 +132,7 @@ export class AiProcessingProcessor extends WorkerHost {
 					documentId,
 					DocumentStatus.FAILED,
 					errorMessage,
-					"processing",
+					FailedPhase.PROCESSING,
 				)
 			}
 

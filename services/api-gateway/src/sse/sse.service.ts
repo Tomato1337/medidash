@@ -45,7 +45,6 @@ export class SseService implements OnModuleInit, OnModuleDestroy {
 		this.redisSubscriber = new Redis(redisConfig)
 		this.redisPublisher = new Redis(redisConfig)
 
-		// Подписываемся на канал событий обработки
 		await this.redisSubscriber.subscribe("processing:events")
 
 		this.redisSubscriber.on("message", (channel, message) => {
@@ -79,35 +78,31 @@ export class SseService implements OnModuleInit, OnModuleDestroy {
 		this.logger.log("SSE Service destroyed")
 	}
 
-	/**
-	 * Добавляет клиента для получения SSE событий
-	 */
 	addClient(
 		clientId: string,
 		userId: string,
 		response: ServerResponse,
 		recordId?: string,
 	) {
-		// Настраиваем заголовки для SSE
+		const corsOrigin = this.envService.get("CORS_ORIGIN")
+		response.setHeader("Access-Control-Allow-Origin", corsOrigin)
+		response.setHeader("Access-Control-Allow-Credentials", "true")
+
 		response.setHeader("Content-Type", "text/event-stream")
 		response.setHeader("Cache-Control", "no-cache")
 		response.setHeader("Connection", "keep-alive")
-		response.setHeader("X-Accel-Buffering", "no") // Для nginx
+		response.setHeader("X-Accel-Buffering", "no")
 
-		// Отправляем начальное сообщение
 		this.sendEvent(response, "connected", {
 			clientId,
 			timestamp: new Date().toISOString(),
 		})
-
-		// Сохраняем клиента
 		this.clients.set(clientId, { id: clientId, userId, response, recordId })
 
 		this.logger.log(
 			`Client ${clientId} connected (userId: ${userId}, recordId: ${recordId || "all"})`,
 		)
 
-		// Отправляем heartbeat каждые 30 секунд
 		const heartbeatInterval = setInterval(() => {
 			if (!this.clients.has(clientId)) {
 				clearInterval(heartbeatInterval)

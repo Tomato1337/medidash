@@ -164,6 +164,32 @@ export class ProcessedChunkDto {
 	piiMappings: PiiMappingDto[]
 }
 
+export class TagDto {
+	@ApiProperty({
+		description: "Название тега",
+		example: "МРТ",
+	})
+	name: string
+
+	@ApiProperty({
+		description: "Описание тега",
+		example: "Магнитно-резонансная томография",
+	})
+	description: string
+
+	@ApiProperty({
+		description: "Цвет тега",
+		example: "#3B82F6",
+	})
+	color: string
+
+	@ApiProperty({
+		description: "Системный тег",
+		example: true,
+	})
+	isSystem: boolean
+}
+
 export class ProcessChunksResponseDto {
 	@ApiProperty({
 		description: "Обработанные чанки",
@@ -182,10 +208,15 @@ export class ProcessChunksResponseDto {
 	title: string
 
 	@ApiProperty({
-		description: "Извлечённые теги",
-		type: [String],
+		description: "Подробный отчёт о документе",
 	})
-	tags: string[]
+	report: string
+
+	@ApiProperty({
+		description: "Извлечённые теги",
+		type: [TagDto],
+	})
+	tags: TagDto[]
 
 	@ApiProperty({
 		description: "Общее количество использованных токенов",

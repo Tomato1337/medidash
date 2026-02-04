@@ -1,5 +1,9 @@
 import { cn } from "@/shared/lib/utils"
-import { DocumentStatus, type DocumentStatusValues } from "@shared-types"
+import {
+	DocumentStatus,
+	type DocumentStatusValues,
+	FailedPhase,
+} from "@shared-types"
 import { cva, type VariantProps } from "class-variance-authority"
 
 const badgeVariants = cva(
@@ -16,6 +20,7 @@ const badgeVariants = cva(
 				[DocumentStatus.UPLOADING]: "",
 				[DocumentStatus.COMPRESSING]: "",
 				[DocumentStatus.PENDING]: "",
+				[DocumentStatus.PARSING]: "",
 			},
 		},
 		compoundVariants: [
@@ -49,6 +54,11 @@ const badgeVariants = cva(
 				status: DocumentStatus.PENDING,
 				class: "bg-orange-500 text-white hover:bg-orange-500/80",
 			},
+			{
+				variant: "default",
+				status: DocumentStatus.PARSING,
+				class: "bg-yellow-500 text-white animate-pulse",
+			},
 		],
 		defaultVariants: {
 			variant: "default",
@@ -64,6 +74,7 @@ const statusText: Record<string, string> = {
 	[DocumentStatus.UPLOADING]: "загрузка",
 	[DocumentStatus.COMPRESSING]: "сжатие",
 	[DocumentStatus.PENDING]: "ожидание",
+	[DocumentStatus.PARSING]: "парсинг",
 }
 
 export interface StatusBadgeProps

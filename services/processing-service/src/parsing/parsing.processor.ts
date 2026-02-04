@@ -8,6 +8,7 @@ import { Queue } from "bullmq"
 import { ParsingService } from "./parsing.service"
 import { EventsService } from "../events/events.service"
 import { QUEUES, JOBS } from "../queue/queue.constants"
+import { FailedPhase } from "@shared-types"
 
 @Processor(QUEUES.PARSING, {
 	concurrency: 2, // Будет переопределено в модуле
@@ -60,7 +61,9 @@ export class ParsingProcessor extends WorkerHost {
 			)
 
 			// Разбиваем на чанки
-			const chunks = this.parsingService.splitIntoChunks(content.text)
+			const chunks = this.parsingService.splitIntoChunks(
+				content.text.toLowerCase().trim(),
+			)
 
 			// Сохраняем результат (raw текст + чанки в DocumentChunk)
 			await this.parsingService.saveExtractedContent(
@@ -152,7 +155,7 @@ export class ParsingProcessor extends WorkerHost {
 				documentId,
 				DocumentStatus.FAILED,
 				errorMessage,
-				"parsing",
+				FailedPhase.PARSING,
 			)
 
 			// Публикуем событие об ошибке

@@ -7,39 +7,37 @@ import { MedicalRecordCard } from "@/pages/dashboard/ui/medical-record-card"
 import { useEffect, useRef, useState } from "react"
 import { CircleQuestionMark, FrownIcon } from "lucide-react"
 import CreateDocumentDialog from "./create-document-dialog"
-import { useRecords } from "@/entities/document/api/useRecord"
 import {
-	useCompressLocalRecord,
-	useUploadRecord,
-} from "@/entities/document/api/useLocalRecords"
-import { DocumentStatus, type DocumentStatusValues } from "@shared-types"
+	useRecordsWithGroups,
+	useRetryRecord,
+	type DisplayRecord,
+} from "@/entities/record"
 import { useIntersection } from "@/shared/hooks/useInteresction"
 import { Skeleton } from "@/shared/ui/skeleton"
 
 export default function DashboardPage() {
 	const ref = useRef<HTMLInputElement>(null)
-	const [isWasData, setIsWasData] = useState(false)
+	const [isWasData, setIsWasData] = useState(true)
 	const {
 		groupedRecords,
 		isLoading,
 		fetchNextPage,
 		hasNextPage,
 		isFetchingNextPage,
-	} = useRecords()
+	} = useRecordsWithGroups()
+
 	const infRef = useRef<HTMLDivElement>(null)
 	const isIntersection = useIntersection(infRef, { threshold: 1.0 })
 
-	const compress = useCompressLocalRecord()
-	const upload = useUploadRecord()
+	const retryRecord = useRetryRecord()
 
-	const handleRetry = (record: any) => {
-		if (!record.isLocal) return
+	const handleRetry = (record: DisplayRecord) => {
+		if (!record.errorPhase) return
 
-		if (record.error?.type === DocumentStatus.COMPRESSING) {
-			compress.mutate(record.id)
-		} else if (record.error?.type === DocumentStatus.UPLOADING) {
-			upload.mutate(record.id)
-		}
+		retryRecord.mutate({
+			recordId: record.id,
+			phase: record.errorPhase,
+		})
 	}
 
 	useEffect(() => {
@@ -49,10 +47,16 @@ export default function DashboardPage() {
 	}, [isIntersection, hasNextPage, isFetchingNextPage, fetchNextPage])
 
 	useEffect(() => {
-		if (groupedRecords && Object.keys(groupedRecords).length > 0) {
-			setIsWasData(true)
+		if (
+			groupedRecords &&
+			Object.keys(groupedRecords).length <= 0 &&
+			!isLoading
+		) {
+			setIsWasData(false)
 		}
 	}, [groupedRecords])
+
+	console.log(isWasData, groupedRecords)
 
 	return (
 		<>
@@ -107,12 +111,14 @@ export default function DashboardPage() {
 							</p>
 						</div>
 					) : groupedRecords &&
-					  Object.keys(groupedRecords).length > 0 ? (
+					  Object.keys(groupedRecords).length > 0 &&
+					  !isLoading ? (
 						Object.entries(groupedRecords).map(
 							([date, records]) => (
 								<div key={date} className="w-full">
 									<h2 className="text-primary-foreground mb-4 text-2xl font-semibold">
-										{date !== "Локальные"
+										{date !== "Локальные" &&
+										date !== "Без даты"
 											? new Date(date).toLocaleDateString(
 													"ru-RU",
 													{
@@ -127,32 +133,34 @@ export default function DashboardPage() {
 									<div className="mt-4 flex flex-col gap-1">
 										{records.map((record) => (
 											<MedicalRecordCard
-												key={record?.id}
-												id={record?.id}
-												title={record?.title}
+												key={record.id}
+												id={record.id}
+												title={record.title}
 												summary={
-													typeof record?.summary ===
+													typeof record.summary ===
 													"string"
 														? record.summary
 														: undefined
 												}
-												tags={record?.tags}
+												tags={record.tags}
 												filesCount={
-													record?.documentCount
+													record.documentCount
 												}
 												date={
-													typeof record?.date ===
-													"number"
-														? new Date(
-																record.date,
-															).toISOString()
-														: record?.date
+													record.date instanceof Date
+														? record.date.toISOString()
+														: (record.date ??
+															undefined)
 												}
-												status={
-													record?.status as DocumentStatusValues
-												}
+												status={record.status}
+												failedPhase={record.errorPhase}
 												onRetry={() =>
 													handleRetry(record)
+												}
+												isRetrying={
+													retryRecord.isPending &&
+													retryRecord.variables
+														?.recordId === record.id
 												}
 											/>
 										))}
@@ -160,14 +168,15 @@ export default function DashboardPage() {
 								</div>
 							),
 						)
-					) : (
+					) : !isLoading ? (
 						<div className="">
 							<CircleQuestionMark className="text-primary-foreground mx-auto size-32" />
 							<h2 className="text-primary-foreground mt-4 text-center text-2xl font-semibold">
 								Нет результатов по вашему запросу
 							</h2>
 						</div>
-					)}
+					) : null}
+
 					<div className="h-1 w-full" ref={infRef}></div>
 					{(isFetchingNextPage || isLoading) && (
 						<div className="flex w-full flex-col gap-2">

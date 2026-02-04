@@ -57,6 +57,13 @@ export class ParsingService {
 			mimeType === "text/plain" ||
 			objectName.toLowerCase().endsWith(".txt")
 
+		// TODO: add image parsing
+		// const isImg =
+		// 	mimeType === "image/jpeg" ||
+		// 	mimeType === "image/png" ||
+		// 	objectName.toLowerCase().endsWith(".jpg") ||
+		// 	objectName.toLowerCase().endsWith(".png")
+
 		if (isPdf) {
 			return this.parsePdf(buffer)
 		} else if (isTxt) {

@@ -9,6 +9,7 @@ import {
 	ParsingJobData,
 	AiProcessingJobData,
 	FailedPhaseValues,
+	FailedPhase,
 } from "@shared-types"
 import {
 	RecoveryResponseDto,
@@ -53,7 +54,7 @@ export class RecoveryService {
 
 		const record = await this.getRecordWithDocuments(recordId)
 
-		if (phase === "parsing") {
+		if (phase === FailedPhase.PARSING) {
 			return this.retryParsing(record)
 		} else {
 			return this.retryAiProcessing(record)
@@ -99,7 +100,7 @@ export class RecoveryService {
 		const failedDocuments = record.documents.filter(
 			(d) =>
 				d.status === DocumentStatus.FAILED &&
-				d.failedPhase === "parsing",
+				d.failedPhase === FailedPhase.PARSING,
 		)
 
 		if (failedDocuments.length === 0) {
@@ -157,7 +158,7 @@ export class RecoveryService {
 		return {
 			success: true,
 			recordId: record.id,
-			phase: "parsing",
+			phase: FailedPhase.PARSING,
 			documentsCount: failedDocuments.length,
 			message: `Started parsing recovery for ${failedDocuments.length} documents`,
 		}
@@ -172,7 +173,7 @@ export class RecoveryService {
 		const failedDocuments = record.documents.filter(
 			(d) =>
 				d.status === DocumentStatus.FAILED &&
-				d.failedPhase === "processing",
+				d.failedPhase === FailedPhase.PROCESSING,
 		)
 
 		if (failedDocuments.length === 0) {
@@ -238,7 +239,7 @@ export class RecoveryService {
 		return {
 			success: true,
 			recordId: record.id,
-			phase: "processing",
+			phase: FailedPhase.PROCESSING,
 			documentsCount: documentsForProcessing.length,
 			message: `Started AI processing recovery for ${documentsForProcessing.length} documents`,
 		}

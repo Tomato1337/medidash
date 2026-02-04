@@ -15,7 +15,13 @@ export interface ProcessDocumentResult {
 	chunks: ProcessChunkResult[]
 	summary: string
 	title: string
-	tags: string[]
+	report: string
+	tags: Array<{
+		name: string
+		description: string
+		color: string
+		isSystem: boolean
+	}>
 	tokensUsed: number
 }
 
@@ -76,7 +82,15 @@ export class AiService {
 	 * Генерирует саммари документа
 	 */
 	async generateSummary(text: string): Promise<{
+		title: string
 		summary: string
+		report: string
+		tags: Array<{
+			name: string
+			description: string
+			color: string
+			isSystem: boolean
+		}>
 		tokensUsed: number
 	}> {
 		return this.geminiService.generateSummary(text)
@@ -106,16 +120,15 @@ export class AiService {
 			.map((c) => c.anonymizedText)
 			.join("\n\n")
 
-		// 3. Генерируем саммари
-		const { summary, tokensUsed: summaryTokens } =
-			await this.geminiService.generateSummary(allAnonymizedText)
+		// 3. Генерируем саммари (включает title, summary, report, tags)
+		const {
+			title,
+			summary,
+			report,
+			tags,
+			tokensUsed: summaryTokens,
+		} = await this.geminiService.generateSummary(allAnonymizedText)
 		totalTokens += summaryTokens
-
-		// 4. Генерируем заголовок
-		const title = await this.geminiService.generateTitle(allAnonymizedText)
-
-		// 5. Извлекаем теги
-		const tags = await this.geminiService.extractTags(allAnonymizedText)
 
 		this.logger.log(
 			`Document processed: ${processedChunks.length} chunks, ${summary.length} chars summary`,
@@ -125,6 +138,7 @@ export class AiService {
 			chunks: processedChunks,
 			summary,
 			title,
+			report,
 			tags,
 			tokensUsed: totalTokens,
 		}

@@ -1,8 +1,39 @@
-import { type DocumentStatusValues, DocumentStatus } from "@shared-types"
+import {
+	type DocumentStatusValues,
+	type FailedPhaseValues,
+} from "@shared-types"
 import Dexie, { type Table } from "dexie"
-type Status = "pending" | "compressing" | "uploading" | "error" | "done"
 
-export interface Tag {
+// =============================================================================
+// SYNC STATUS
+// =============================================================================
+
+export type SyncStatus =
+	| "pending"
+	| "compressing"
+	| "uploading"
+	| "synced"
+	| "error"
+
+// =============================================================================
+// IDB DOCUMENT
+// =============================================================================
+
+export interface IDBDocument {
+	id: string
+	file: File
+	compressed?: Blob
+	status: DocumentStatusValues
+	uploadProgress?: number
+	errorMessage?: string
+	errorPhase?: FailedPhaseValues
+}
+
+// =============================================================================
+// IDB TAG
+// =============================================================================
+
+export interface IDBTag {
 	id: string
 	name: string
 	description?: string | null
@@ -12,51 +43,51 @@ export interface Tag {
 	updatedAt: string
 }
 
-export interface LocalRecord {
+// =============================================================================
+// IDB RECORD
+// =============================================================================
+
+export interface IDBRecord {
 	id: string
-	isLocal?: boolean
+	isLocal: true
 	title: string
 	description?: string
 	summary?: string
-	documents: Array<{
-		id: string
-		file: File
-		compressed?: Blob
-		status: DocumentStatusValues
-		error?: {
-			message: string
-			type: Omit<Status, (typeof DocumentStatus)["COMPLETED"]>
-		}
-		compressionProgress?: number
-		compressionStartedAt?: number
-	}>
-	tags: Tag[]
+	documents: IDBDocument[]
+	tags: IDBTag[]
 	createdAt: number
 	updatedAt: number
 	date?: Date
 	documentCount: number
 	status: DocumentStatusValues
-	error?: {
-		message: string
-		type: Omit<Status, (typeof DocumentStatus)["COMPLETED"]>
-	}
-	uploadProgress?: number
-	compressionStartedAt?: number
+	// Sync fields
+	syncStatus: SyncStatus
+	errorPhase?: FailedPhaseValues
+	errorMessage?: string
+	retryCount: number
 }
+
+// =============================================================================
+// QUERY CACHE (for TanStack Query persistence)
+// =============================================================================
 
 export interface QueryCache {
 	id: string
 	data: unknown
 }
 
+// =============================================================================
+// DATABASE
+// =============================================================================
+
 class MedicalDocsDB extends Dexie {
-	records!: Table<LocalRecord, string>
+	records!: Table<IDBRecord, string>
 	queryCache!: Table<QueryCache, string>
 
 	constructor() {
 		super("medical-docs-db")
-		this.version(1).stores({
-			records: "id, createdAt, status",
+		this.version(2).stores({
+			records: "id, createdAt, status, syncStatus",
 			queryCache: "id",
 		})
 	}

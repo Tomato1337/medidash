@@ -13,7 +13,7 @@ import { randomUUID } from "crypto"
 // }
 
 @ApiTags("SSE Events")
-@Controller("api/events")
+@Controller("events")
 export class SseController {
 	constructor(private readonly sseService: SseService) {}
 
@@ -27,18 +27,15 @@ export class SseController {
 			"Устанавливает Server-Sent Events соединение для получения real-time уведомлений о статусе обработки документов. " +
 			"Клиент будет получать события: processing:started, processing:progress, processing:completed, processing:failed",
 	})
-	async streamAllProcessingEvents(
+	streamAllProcessingEvents(
 		@Param() _params: unknown,
-		@Res({ passthrough: true }) reply: FastifyReply,
+		@Res() reply: FastifyReply,
 		@Req() request: FastifyRequest,
-	) {
-		const userId = request.user.userId
+	): void {
+		const userId = request.user?.id
 		const clientId = randomUUID()
-
+		console.log(request.user)
 		this.sseService.addClient(clientId, userId, reply.raw)
-
-		// Не закрываем соединение
-		return reply
 	}
 
 	@Get("processing/:recordId")
@@ -56,18 +53,15 @@ export class SseController {
 		description: "ID record для отслеживания",
 		example: "cm2u1234567890abcdef",
 	})
-	async streamRecordProcessingEvents(
+	streamRecordProcessingEvents(
 		@Param("recordId") recordId: string,
-		@Res({ passthrough: true }) reply: FastifyReply,
+		@Res() reply: FastifyReply,
 		@Req() request: FastifyRequest,
-	) {
-		const userId = request.user.userId
+	): void {
+		const userId = request.user?.id
 		const clientId = randomUUID()
 
 		this.sseService.addClient(clientId, userId, reply.raw, recordId)
-
-		// Не закрываем соединение
-		return reply
 	}
 
 	@Get("stats")

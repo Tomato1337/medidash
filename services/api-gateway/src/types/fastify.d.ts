@@ -6,7 +6,10 @@ declare module "fastify" {
 			[cookieName: string]: string | undefined
 		}
 		user: {
-			userId: string
+			id: string
+			email: string
+			name: string
+			role: string
 		}
 	}
 

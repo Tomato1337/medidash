@@ -1,5 +1,4 @@
 import { Injectable, Logger } from "@nestjs/common"
-import { ConfigService } from "@nestjs/config"
 import type { OpenAPIObject } from "@nestjs/swagger"
 import { EnvService } from "src/env/env.service"
 
@@ -24,6 +23,11 @@ export class SwaggerAggregatorService {
 		this.registerService({
 			name: "Processing Service",
 			url: this.configService.get("PROCESSING_SERVICE_URL"),
+		})
+
+		this.registerService({
+			name: "AI Service",
+			url: this.configService.get("AI_SERVICE_URL"),
 		})
 	}
 

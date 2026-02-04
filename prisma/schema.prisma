@@ -117,7 +117,7 @@ model Document {
     minioObjectKey   String // Ключ объекта в MinIO
     status           DocumentStatus @default(UPLOADING)
     errorMessage     String? // Сообщение об ошибке, если status = FAILED
-    failedPhase      String? // Фаза, на которой произошла ошибка: "parsing" | "processing"
+    failedPhase      String? // Фаза, на которой произошла ошибка: "PARSING" | "PROCESSING"
     extractedText    String?        @db.Text // Извлечённый текст из PDF (до анонимизации)
     metadata         Json? // Метаданные документа (pageCount, etc.)
     processedAt      DateTime? // Когда завершена обработка

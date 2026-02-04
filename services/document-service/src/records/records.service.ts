@@ -29,7 +29,7 @@ export class RecordsService {
 		if (isExisting) {
 			throw new HttpException(
 				`Record with ID ${dto.recordId} already exists`,
-				400,
+				409,
 			)
 		}
 		const record = await this.prisma.record.create({
@@ -61,6 +61,8 @@ export class RecordsService {
 				documents: {
 					select: {
 						status: true,
+						id: true,
+						failedPhase: true,
 					},
 				},
 				_count: {
@@ -99,6 +101,8 @@ export class RecordsService {
 				documents: {
 					select: {
 						status: true,
+						id: true,
+						failedPhase: true,
 					},
 				},
 				_count: {
@@ -142,6 +146,8 @@ export class RecordsService {
 				documents: {
 					select: {
 						status: true,
+						id: true,
+						failedPhase: true,
 						fileSize: true,
 						fileName: true,
 						originalFileName: true,
@@ -199,6 +205,8 @@ export class RecordsService {
 				documents: {
 					select: {
 						status: true,
+						id: true,
+						failedPhase: true,
 					},
 				},
 				_count: {
@@ -229,12 +237,19 @@ export class RecordsService {
 
 	private mapToResponseDto(record: any): RecordResponseDto {
 		let recordStatus: DocumentStatusValues = DocumentStatus.COMPLETED
+		let recordFailedPhase: string | null = null
 
 		if (record.documents && record.documents.length > 0) {
 			const statuses = record.documents.map((doc: any) => doc.status)
 
 			if (statuses.includes(DocumentStatus.FAILED)) {
 				recordStatus = DocumentStatus.FAILED
+				// Находим фазу ошибки из первого упавшего документа
+				const failedDoc = record.documents.find(
+					(doc: any) =>
+						doc.status === DocumentStatus.FAILED && doc.failedPhase,
+				)
+				recordFailedPhase = failedDoc?.failedPhase || null
 			} else if (statuses.includes(DocumentStatus.UPLOADING)) {
 				recordStatus = DocumentStatus.UPLOADING
 			} else if (statuses.includes(DocumentStatus.PARSING)) {
@@ -259,12 +274,15 @@ export class RecordsService {
 			summary: record.summary,
 			createdAt: record.createdAt,
 			status: recordStatus,
+			failedPhase: recordFailedPhase,
 			documents:
 				record.documents?.map((doc: any) => ({
+					id: doc.id,
 					status: doc.status,
 					fileSize: doc.fileSize,
 					fileName: doc.fileName,
 					originalFileName: doc.originalFileName,
+					failedPhase: doc.failedPhase || null,
 				})) || [],
 			updatedAt: record.updatedAt,
 			tags: record.tags?.map((rt: any) => rt.tag) || [],

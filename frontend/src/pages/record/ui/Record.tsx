@@ -1,4 +1,4 @@
-import { useRecord } from "@/entities/document"
+import { documentDownloadMutationOptions } from "@/entities/document"
 import { Badge } from "@/shared/ui/badge"
 import { Button } from "@/shared/ui/button"
 import { FileCard } from "@/entities/document/ui/file-card"
@@ -11,37 +11,78 @@ import {
 	RefreshCcw,
 } from "lucide-react"
 import { useNavigate } from "@tanstack/react-router"
-import { isLocalRecord } from "@/entities/document/api/useRecord"
 import { Skeleton } from "@/shared/ui/skeleton"
 import { StatusBadgeFactory } from "@/entities/document/ui/status"
 import { SkeletonTags } from "@/shared/ui/skeletonTags"
-import {
-	useCompressLocalRecord,
-	useUploadFile,
-	useUploadRecord,
-} from "@/entities/document/api/useLocalRecords"
 import { DocumentStatus, type DocumentStatusValues } from "@shared-types"
-import { formatDate } from "@/shared/lib/utils"
+import { cn, formatDate } from "@/shared/lib/utils"
+import {
+	isLocalRecord,
+	recordQueryOptions,
+	subscribeToRecordProcessing,
+	useRetryRecord,
+} from "@/entities/record"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useEffect } from "react"
 
 interface RecordPageProps {
 	id?: string
 }
 
 export default function RecordPage({ id }: RecordPageProps) {
+	const queryClient = useQueryClient()
 	const navigate = useNavigate()
-	const { data: record, isLoading, isError } = useRecord(id || "")
-	const compress = useCompressLocalRecord()
-	const upload = useUploadRecord()
+	const {
+		data: record,
+		isLoading,
+		isError,
+	} = useQuery(recordQueryOptions(id || ""))
+	const retryRecord = useRetryRecord()
+	const documentDownloadMutation = useMutation(
+		documentDownloadMutationOptions(),
+	)
 
-	const handleRetry = (record: any) => {
-		console.log(record)
-		if (!record.isLocal) return
+	useEffect(() => {
+		if (!record) return
 
-		if (record.error?.type === DocumentStatus.COMPRESSING) {
-			compress.mutate(record.id)
-		} else if (record.error?.type === DocumentStatus.UPLOADING) {
-			upload.mutate(record.id)
+		const unsubscribe = subscribeToRecordProcessing(record.id || "", {
+			allStatus: () => {
+				queryClient.invalidateQueries({
+					queryKey: ["record", record.id],
+				})
+				queryClient.invalidateQueries({
+					queryKey: ["records"],
+				})
+			},
+		})
+
+		return () => {
+			unsubscribe()
 		}
+	}, [record])
+
+	const handleRetry = (record) => {
+		console.log(record)
+		retryRecord.mutate({
+			recordId: record.id,
+			phase: record.failedPhase,
+		})
+	}
+
+	const handleDownloadFile = (documentId: string) => {
+		documentDownloadMutation.mutate(documentId, {
+			onSuccess: (data) => {
+				console.log(data)
+				const { downloadUrl } = data
+				const link = document.createElement("a")
+				link.target = "_blank"
+				link.href = downloadUrl || ""
+				link.download = ""
+				document.body.appendChild(link)
+				link.click()
+				link.remove()
+			},
+		})
 	}
 
 	if (!id) {
@@ -71,6 +112,9 @@ export default function RecordPage({ id }: RecordPageProps) {
 		)
 	}
 	const isLocal = isLocalRecord(record)
+	const canRetry =
+		record.status === DocumentStatus.FAILED &&
+		(isLocal || record.failedPhase)
 
 	const formatFileSize = (bytes: number) => {
 		if (bytes < 1024) return `${bytes} B`
@@ -107,18 +151,23 @@ export default function RecordPage({ id }: RecordPageProps) {
 						className="inline-flex"
 						status={record.status as DocumentStatusValues}
 					/>
-					{record.status === DocumentStatus.FAILED && (
+					{canRetry && (
 						<Button
 							variant="ghost"
 							size="icon"
 							className="h-6 w-6 hover:bg-transparent"
+							disabled={retryRecord.isPending}
 							onClick={(e) => {
 								e.preventDefault()
 								e.stopPropagation()
 								handleRetry(record)
 							}}
 						>
-							<RefreshCcw className="h-4 w-4" />
+							{retryRecord.isPending ? (
+								<Loader2 className="h-4 w-4 animate-spin" />
+							) : (
+								<RefreshCcw className="h-4 w-4" />
+							)}
 						</Button>
 					)}
 				</div>
@@ -136,7 +185,7 @@ export default function RecordPage({ id }: RecordPageProps) {
 							</h2>
 						)}
 						{record.summary ? (
-							<p className="text-muted-foreground">
+							<p className="text-foreground">
 								{typeof record.summary === "string"
 									? record.summary
 									: ""}
@@ -146,7 +195,14 @@ export default function RecordPage({ id }: RecordPageProps) {
 								{Array.from({ length: 4 }).map((_, id) => (
 									<Skeleton
 										key={id}
-										className={`bg-accent-foreground h-4 rounded-lg`}
+										className={cn(
+											`bg-accent-foreground h-4 rounded-lg`,
+											{
+												"bg-destructive animate-none":
+													record.status ===
+													DocumentStatus.FAILED,
+											},
+										)}
 										style={{
 											width: `${Math.floor(Math.random() * (100 - 60 + 1)) + 60}%`,
 										}}
@@ -171,49 +227,6 @@ export default function RecordPage({ id }: RecordPageProps) {
 					)}
 				</div>
 
-				{/* Статус */}
-				{/* {isLocal && (
-					<div className="mb-4">
-						<div className="flex items-center gap-2">
-							{record.status === "pending" && (
-								<Badge variant="outline">
-									Ожидает обработки
-								</Badge>
-							)}
-							{record.status === "compressing" && (
-								<>
-									<Loader2 className="text-primary h-4 w-4 animate-spin" />
-									<Badge
-										variant="outline"
-										className="border-blue-500 bg-blue-500/10 text-blue-700"
-									>
-										Сжатие файлов
-									</Badge>
-								</>
-							)}
-							{record.status === "uploading" && (
-								<>
-									<Loader2 className="text-primary h-4 w-4 animate-spin" />
-									<Badge
-										variant="outline"
-										className="border-green-500 bg-green-500/10 text-green-700"
-									>
-										Загрузка на сервер
-									</Badge>
-								</>
-							)}
-							{record.status === "error" && (
-								<Badge
-									variant="outline"
-									className="border-destructive bg-destructive/10 text-destructive"
-								>
-									Ошибка: {record.error?.message}
-								</Badge>
-							)}
-						</div>
-					</div>
-				)} */}
-
 				{/* Теги */}
 				{record.tags && record.tags.length > 0 ? (
 					<div className="mb-4 flex flex-wrap gap-2">
@@ -228,7 +241,9 @@ export default function RecordPage({ id }: RecordPageProps) {
 						))}
 					</div>
 				) : (
-					<SkeletonTags />
+					<SkeletonTags
+						status={record.status as DocumentStatusValues}
+					/>
 				)}
 
 				{/* Дата */}
@@ -249,7 +264,7 @@ export default function RecordPage({ id }: RecordPageProps) {
 					<h2 className="text-foreground mb-4 text-lg font-semibold">
 						Описание
 					</h2>
-					<p className="text-muted-foreground leading-relaxed">
+					<p className="text-foreground leading-relaxed">
 						{typeof record.description === "string"
 							? record.description
 							: ""}
@@ -279,9 +294,10 @@ export default function RecordPage({ id }: RecordPageProps) {
 								fileName={file.fileName || ""}
 								fileSize={formatFileSize(file.fileSize || 0)}
 								status={file.status}
-								onDownload={() =>
+								onDownload={() => {
 									console.log("Download", file.fileName)
-								}
+									handleDownloadFile(file?.id || "")
+								}}
 							/>
 						))}
 				</div>

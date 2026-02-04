@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common"
 import { GoogleGenerativeAI, GenerativeModel } from "@google/generative-ai"
 import { EnvService } from "../env/env.service"
+import z from "zod"
 
 export interface EmbeddingResult {
 	embedding: number[]
@@ -8,7 +9,15 @@ export interface EmbeddingResult {
 }
 
 export interface SummaryResult {
+	title: string
 	summary: string
+	report: string
+	tags: Array<{
+		name: string
+		description: string
+		color: string
+		isSystem: boolean
+	}>
 	tokensUsed: number
 }
 
@@ -34,16 +43,19 @@ export class GeminiService implements OnModuleInit {
 			model: "text-embedding-004",
 		})
 
-		// Модель для генерации текста (саммари): gemini-2.0-flash
+		// Модель для генерации текста (саммари): gemini-2.5-flash
 		this.chatModel = this.genAI.getGenerativeModel({
-			model: "gemini-2.0-flash",
+			model: "gemini-2.5-flash",
+			generationConfig: {
+				responseMimeType: "application/json",
+			},
 		})
 
 		this.logger.log("✅ Gemini AI initialized")
 		this.logger.log(
 			`   Embedding model: text-embedding-004 (768 dimensions)`,
 		)
-		this.logger.log(`   Chat model: gemini-2.0-flash`)
+		this.logger.log(`   Chat model: gemini-2.5-flash`)
 		this.logger.log(`   Rate limit delay: ${this.rateLimitDelay}ms`)
 	}
 
@@ -62,7 +74,30 @@ export class GeminiService implements OnModuleInit {
 	}
 
 	/**
+	 * Extracts retry delay from Google API error message
+	 * Looks for patterns like "Please retry in 13.577738437s" or "retryDelay":"16s"
+	 */
+	private extractRetryDelay(errorMessage: string): number | null {
+		// Pattern 1: "Please retry in 13.577738437s"
+		const retryInMatch = errorMessage.match(/retry in (\d+(?:\.\d+)?)\s*s/i)
+		if (retryInMatch) {
+			return Math.ceil(parseFloat(retryInMatch[1]) * 1000)
+		}
+
+		// Pattern 2: "retryDelay":"16s"
+		const retryDelayMatch = errorMessage.match(
+			/"retryDelay"\s*:\s*"(\d+)s"/,
+		)
+		if (retryDelayMatch) {
+			return parseInt(retryDelayMatch[1], 10) * 1000
+		}
+
+		return null
+	}
+
+	/**
 	 * Выполняет операцию с retry и exponential backoff
+	 * Для ошибок 429 использует retryDelay из ответа API
 	 */
 	private async withRetry<T>(
 		operation: () => Promise<T>,
@@ -80,6 +115,9 @@ export class GeminiService implements OnModuleInit {
 				const errorMessage =
 					error instanceof Error ? error.message : String(error)
 
+				// Check if error is 429 (rate limit)
+				const is429 = errorMessage.includes("429")
+
 				// Проверяем, является ли ошибка временной (сетевая ошибка)
 				const isRetryable =
 					errorMessage.includes("fetch failed") ||
@@ -92,7 +130,7 @@ export class GeminiService implements OnModuleInit {
 					errorMessage.includes("other side closed") ||
 					errorMessage.includes("UND_ERR_SOCKET") ||
 					errorMessage.includes("503") ||
-					errorMessage.includes("429")
+					is429
 
 				if (!isRetryable || attempt === maxRetries) {
 					this.logger.error(
@@ -101,10 +139,34 @@ export class GeminiService implements OnModuleInit {
 					throw error
 				}
 
-				const delayMs = baseDelayMs * Math.pow(2, attempt - 1)
-				this.logger.warn(
-					`${operationName} failed (attempt ${attempt}/${maxRetries}): ${errorMessage}. Retrying in ${delayMs}ms...`,
-				)
+				// For 429 errors, try to extract the recommended retry delay from API response
+				let delayMs: number
+				if (is429) {
+					const apiDelay = this.extractRetryDelay(errorMessage)
+					if (apiDelay) {
+						// Add 1 second buffer to the API-recommended delay
+						delayMs = apiDelay + 1000
+						this.logger.warn(
+							`${operationName} rate limited (attempt ${attempt}/${maxRetries}). API suggests ${apiDelay}ms, waiting ${delayMs}ms...`,
+						)
+					} else {
+						// Fallback to longer delay for 429 errors
+						delayMs = Math.min(
+							30000,
+							baseDelayMs * Math.pow(2, attempt),
+						)
+						this.logger.warn(
+							`${operationName} rate limited (attempt ${attempt}/${maxRetries}). Using fallback delay ${delayMs}ms...`,
+						)
+					}
+				} else {
+					// Standard exponential backoff for other errors
+					delayMs = baseDelayMs * Math.pow(2, attempt - 1)
+					this.logger.warn(
+						`${operationName} failed (attempt ${attempt}/${maxRetries}): ${errorMessage}. Retrying in ${delayMs}ms...`,
+					)
+				}
+
 				await new Promise((resolve) => setTimeout(resolve, delayMs))
 			}
 		}
@@ -172,7 +234,7 @@ export class GeminiService implements OnModuleInit {
 	async generateSummary(text: string): Promise<SummaryResult> {
 		await this.waitForRateLimit()
 
-		const prompt = `Ты — медицинский ассистент. Проанализируй следующий медицинский документ и создай краткое структурированное резюме на русском языке.
+		const prompt = `Ты — медицинский ассистент. Проанализируй следующий медицинский документ, создай краткое структурированное резюме на русском языке и подробный отчёт о предоставленных документах со всеми сведениями. Также нужно выбрать подходящие тэги из <tags/> или добавь новые в формате format.tags. Также удали из ответа анонимизированные значения в виде [NAME], [ADDRESS], [PHONE], [EMAIL], [DATE], [ID], [OTHER]. НИКОГДА НЕ УПОМИНАЙ И ПРОПУСКАЙ ВСЁ, ЧТО СВЯЗАНО С ЛИЧНЫМИ ДАННЫМИ, ТОЛЬКО ФАКТЫ О ПАЦИЕНТЕ БЕЗ ЕГО ЛИЧНОЙ ИНФОРМАЦИИ, КЛИНИКИ И ПРОЧЕГО. ВСЕГДА ВОЗВРАЩАЙ ОТВЕТ В ВИДЕ format.your_response_with_json_format
 
 Включи:
 - Основной диагноз или причина обращения
@@ -180,18 +242,72 @@ export class GeminiService implements OnModuleInit {
 - Назначенное лечение или рекомендации
 - Важные предупреждения или противопоказания (если есть)
 
-Формат: краткий абзац (2-4 предложения).
+<tags>
+Анализы, Заключения, Рецепты, МРТ, УЗИ, Рентген, КТ, ЭКГ, Прививки, Кардиология, Неврология, Эндокринология, Онкология, Терапия, Выписки, Направления, Справки, Стоматология, Офтальмология, ЛОР, Гинекология, Урология, Хирургия, Травматология, Дерматология, Гастроэнтерология
+</tags>
+<document>
+        ${text}
+</document>
 
-Документ:
-${text}
-
-Резюме:`
+<format>
+        <title>
+            Краткий заголовок для резюме (1-2 предложения).
+        </title>
+        <resume>
+            Краткий абзац для резюме (2-4 предложения).
+        </resume>
+        <report>
+            Подробный отчёт о предоставленных документах со всеми сведениями.
+        </report>
+        <tags>
+            [
+                {
+                    "name": "Название тэга",
+                    "description": "Описание тэга",
+                    "color": "Цвет",
+                    "isSystem": true
+                }
+            ]
+        </tags>
+        <your_response_with_json_format>
+            {
+                "title": format.title,
+                "resume": format.resume,
+                "report": format.report,
+                "tags": format.tags
+            }
+        </your_response_with_json_format>
+</format>
+`
 
 		return this.withRetry(
 			async () => {
+				const responseSchema = z.object({
+					title: z.string(),
+					resume: z.string(),
+					report: z.string(),
+					tags: z.array(
+						z.object({
+							name: z.string(),
+							description: z.string(),
+							color: z.string(),
+							isSystem: z.boolean(),
+						}),
+					),
+				})
+
 				const result = await this.chatModel.generateContent(prompt)
 				const response = result.response
-				const summary = response.text()
+				const responseRawObject = response.text()
+
+				const safeObject = responseSchema.parse(
+					JSON.parse(responseRawObject),
+				)
+
+				const title = safeObject.title
+				const summary = safeObject.resume
+				const report = safeObject.report
+				const tags = safeObject.tags
 
 				// Получаем информацию о токенах
 				const usageMetadata = response.usageMetadata
@@ -204,76 +320,14 @@ ${text}
 				)
 
 				return {
+					title: title.trim(),
 					summary: summary.trim(),
+					report: report.trim(),
+					tags,
 					tokensUsed,
 				}
 			},
 			"generateSummary",
-			3,
-			1000,
-		)
-	}
-
-	/**
-	 * Генерирует заголовок для документа на основе его содержимого
-	 */
-	async generateTitle(text: string): Promise<string> {
-		await this.waitForRateLimit()
-
-		const prompt = `Создай короткий заголовок (3-7 слов) для этого медицинского документа на русском языке.
-Только заголовок, без кавычек и пояснений.
-
-Документ:
-${text.slice(0, 1000)}
-
-Заголовок:`
-
-		return this.withRetry(
-			async () => {
-				const result = await this.chatModel.generateContent(prompt)
-				const title = result.response.text().trim()
-
-				this.logger.debug(`Generated title: ${title}`)
-
-				return title
-			},
-			"generateTitle",
-			3,
-			1000,
-		)
-	}
-
-	/**
-	 * Извлекает теги из медицинского документа
-	 */
-	async extractTags(text: string): Promise<string[]> {
-		await this.waitForRateLimit()
-
-		const prompt = `Извлеки 3-5 ключевых тегов из этого медицинского документа.
-Теги должны быть на русском языке, в нижнем регистре.
-Верни только теги через запятую, без нумерации.
-
-Примеры тегов: анализ крови, узи, кардиология, терапевт, рецепт
-
-Документ:
-${text.slice(0, 2000)}
-
-Теги:`
-
-		return this.withRetry(
-			async () => {
-				const result = await this.chatModel.generateContent(prompt)
-				const tagsText = result.response.text().trim()
-				const tags = tagsText
-					.split(",")
-					.map((tag) => tag.trim().toLowerCase())
-					.filter((tag) => tag.length > 0 && tag.length < 50)
-
-				this.logger.debug(`Extracted tags: ${tags.join(", ")}`)
-
-				return tags
-			},
-			"extractTags",
 			3,
 			1000,
 		)

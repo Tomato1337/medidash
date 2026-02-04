@@ -192,12 +192,12 @@ export interface paths {
          * @description
          *     Перезапускает обработку документов Record для указанной фазы.
          *
-         *     **Фаза "parsing":**
+         *     **Фаза "PARSING":**
          *     - Находит документы со статусом FAILED и failedPhase="parsing"
          *     - Сбрасывает статус на PARSING
          *     - Добавляет задачи в очередь парсинга
          *
-         *     **Фаза "processing":**
+         *     **Фаза "PROCESSING":**
          *     - Находит документы со статусом FAILED и failedPhase="processing"
          *     - Также включает документы со статусом PROCESSING (спарсены, но AI упал)
          *     - Добавляет задачу в очередь AI обработки
@@ -547,6 +547,8 @@ export interface components {
             createdAt: string;
             documents: Record<string, never>[];
             status: string;
+            /** @description Фаза, на которой произошла ошибка (PARSING | PROCESSING)) */
+            failedPhase?: Record<string, never>;
             /** Format: date-time */
             updatedAt: string;
             tags: string[];
@@ -1144,11 +1146,15 @@ export interface operations {
                 /** @description ID записи (Record) */
                 recordId: string;
                 /** @description Фаза обработки для перезапуска */
-                phase: "parsing" | "processing";
+                phase: "PARSING" | "PROCESSING";
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": string;
+            };
+        };
         responses: {
             /** @description Обработка успешно перезапущена */
             200: {

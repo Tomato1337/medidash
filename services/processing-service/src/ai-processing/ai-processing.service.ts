@@ -305,9 +305,18 @@ export class AiProcessingService {
 	 * Генерирует саммари документа через AI Service
 	 * TONL используется здесь для экономии токенов (это LLM вызов)
 	 */
-	async generateSummary(
-		text: string,
-	): Promise<{ summary: string; tokensUsed: number }> {
+	async generateSummary(text: string): Promise<{
+		title: string
+		summary: string
+		report: string
+		tags: Array<{
+			name: string
+			description: string
+			color: string
+			isSystem: boolean
+		}>
+		tokensUsed: number
+	}> {
 		const { optimized, originalLength, optimizedLength } =
 			this.optimizeWithTONL(text)
 
@@ -317,7 +326,15 @@ export class AiProcessingService {
 
 		try {
 			const response = await this.httpClient.post<{
+				title: string
 				summary: string
+				report: string
+				tags: Array<{
+					name: string
+					description: string
+					color: string
+					isSystem: boolean
+				}>
 				tokensUsed: number
 			}>("/api/ai/summary", { text: optimized })
 
@@ -326,7 +343,10 @@ export class AiProcessingService {
 			)
 
 			return {
+				title: response.data.title,
 				summary: response.data.summary,
+				report: response.data.report,
+				tags: response.data.tags,
 				tokensUsed: response.data.tokensUsed,
 			}
 		} catch (error) {
@@ -424,16 +444,90 @@ export class AiProcessingService {
 	 */
 	async updateRecordWithAiResults(
 		recordId: string,
+		title: string,
 		summary: string,
+		report: string,
 		structuredData?: Record<string, unknown>,
 	): Promise<void> {
+		const record = await this.prismaService.record.findUnique({
+			where: { id: recordId },
+		})
+		console.log(title)
+		const isChangingTitle = record?.title === ""
 		await this.prismaService.record.update({
 			where: { id: recordId },
 			data: {
+				title: isChangingTitle ? title : record?.title,
 				summary,
+				description: report,
 				status: DocumentStatus.COMPLETED, // Также обновляем статус Record
 				...(structuredData && { structuredData }),
 			},
 		})
+	}
+
+	/**
+	 * Сохраняет теги для Record
+	 * Если тег с таким именем существует — connect, иначе create + connect
+	 */
+	async saveTagsForRecord(
+		recordId: string,
+		tags: Array<{
+			name: string
+			description: string
+			color: string
+			isSystem: boolean
+		}>,
+	): Promise<void> {
+		for (const tag of tags) {
+			// Проверяем, существует ли тег с таким именем
+			const existingTag = await this.prismaService.tag.findUnique({
+				where: { name: tag.name },
+			})
+
+			if (existingTag) {
+				// Тег существует — создаём только связь (если она ещё не существует)
+				await this.prismaService.recordTag.upsert({
+					where: {
+						recordId_tagId: {
+							recordId,
+							tagId: existingTag.id,
+						},
+					},
+					create: {
+						recordId,
+						tagId: existingTag.id,
+					},
+					update: {}, // Ничего не обновляем, связь уже есть
+				})
+
+				this.logger.debug(
+					`Connected existing tag "${tag.name}" to record ${recordId}`,
+				)
+			} else {
+				// Тег не существует — создаём новый тег и связь
+				const newTag = await this.prismaService.tag.create({
+					data: {
+						name: tag.name,
+						description: tag.description,
+						color: tag.color,
+						isSystem: tag.isSystem,
+					},
+				})
+
+				await this.prismaService.recordTag.create({
+					data: {
+						recordId,
+						tagId: newTag.id,
+					},
+				})
+
+				this.logger.debug(
+					`Created new tag "${tag.name}" and connected to record ${recordId}`,
+				)
+			}
+		}
+
+		this.logger.log(`✅ Saved ${tags.length} tags for record ${recordId}`)
 	}
 }

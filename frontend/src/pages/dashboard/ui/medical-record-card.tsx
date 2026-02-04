@@ -8,7 +8,7 @@ import { Skeleton } from "@/shared/ui/skeleton"
 import { StatusBadgeFactory } from "@/entities/document/ui/status"
 import { SkeletonTags } from "@/shared/ui/skeletonTags"
 import { Button } from "@/shared/ui/button"
-import { RefreshCw } from "lucide-react"
+import { RefreshCw, Loader2 } from "lucide-react"
 
 interface MedicalRecordCardProps {
 	id: string
@@ -18,8 +18,10 @@ interface MedicalRecordCardProps {
 	filesCount: number
 	date: string | Date | undefined
 	status?: DocumentStatusValues
+	failedPhase?: string | null
 	onDelete?: () => void
 	onRetry?: () => void
+	isRetrying?: boolean
 	className?: string
 }
 
@@ -31,7 +33,9 @@ export function MedicalRecordCard({
 	filesCount,
 	date,
 	status = DocumentStatus.PROCESSING,
+	failedPhase,
 	onRetry,
+	isRetrying,
 	className,
 }: MedicalRecordCardProps) {
 	return (
@@ -50,13 +54,18 @@ export function MedicalRecordCard({
 								variant="ghost"
 								size="icon"
 								className="h-6 w-6 hover:bg-transparent"
+								disabled={isRetrying}
 								onClick={(e) => {
 									e.preventDefault()
 									e.stopPropagation()
 									onRetry()
 								}}
 							>
-								<RefreshCw className="h-4 w-4" />
+								{isRetrying ? (
+									<Loader2 className="h-4 w-4 animate-spin" />
+								) : (
+									<RefreshCw className="h-4 w-4" />
+								)}
 							</Button>
 						)}
 					</div>
@@ -69,13 +78,20 @@ export function MedicalRecordCard({
 						: title}
 				</h3>
 
-				<div className="text-muted-foreground line-clamp-4 text-sm leading-relaxed">
+				<div className="text-foreground line-clamp-4 text-sm leading-relaxed">
 					{!summary ? (
 						<div className="flex flex-col gap-[2px]">
 							{Array.from({ length: 4 }).map((_, id) => (
 								<Skeleton
 									key={id}
-									className={`bg-accent-foreground h-4 rounded-lg`}
+									className={cn(
+										"bg-accent-foreground h-4 rounded-lg",
+										{
+											"bg-destructive animate-none":
+												status ===
+												DocumentStatus.FAILED,
+										},
+									)}
 									style={{
 										width: `${Math.floor(Math.random() * (100 - 60 + 1)) + 60}%`,
 									}}
@@ -87,17 +103,6 @@ export function MedicalRecordCard({
 					)}
 				</div>
 
-				{/* <div className="flex flex-wrap gap-2">
-					{tags.map((tag, index) => (
-						<Badge
-							key={index}
-							variant="secondary"
-							className="border-primary text-primary bg-primary/10 rounded-full border px-3 py-1 text-xs font-normal"
-						>
-							{tag}
-						</Badge>
-					))}
-				</div> */}
 				{tags && tags.length > 0 ? (
 					<div className="flex flex-wrap gap-2">
 						{tags.map((tag, index) => (
@@ -111,7 +116,7 @@ export function MedicalRecordCard({
 						))}
 					</div>
 				) : (
-					<SkeletonTags />
+					<SkeletonTags status={status} />
 				)}
 
 				<div className="text-foreground flex items-center gap-4 text-xs">

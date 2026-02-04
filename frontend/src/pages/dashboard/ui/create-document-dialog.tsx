@@ -16,7 +16,7 @@ import { useDropzone, type FileWithPath } from "react-dropzone"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { useCreateAndUploadRecord } from "@/entities/document"
+import { useCreateRecord } from "@/entities/record"
 import { customToast } from "@/shared/lib/utils"
 import { Field, FieldError } from "@/shared/ui/field"
 import InputLabel from "@/shared/ui/inputLabel"
@@ -67,7 +67,8 @@ export default function CreateDocumentDialog() {
 		},
 	})
 
-	const createAndUpload = useCreateAndUploadRecord()
+	// Use new architecture - useCreateRecord from entities/record
+	const createRecord = useCreateRecord()
 
 	const onDrop = useCallback((acceptedFiles: FileWithPath[]) => {
 		setSavedFiles((prevFiles) => {
@@ -95,34 +96,31 @@ export default function CreateDocumentDialog() {
 	})
 
 	const onSubmit = async (data: any) => {
-		console.log("sd", data)
 		if (savedFiles.length === 0) {
 			customToast("Добавьте хотя бы один файл", "error")
 			return
 		}
 
-		// Получаем полные объекты тегов по их ID
+		// Get full tag objects by their ID
 		const fullTags = (data.tags || [])
 			.map((tagId: string) =>
 				tagsQuery.data?.find((tag) => tag.id === tagId),
 			)
-			.filter(Boolean) // Удаляем undefined значения
-
-		console.log("Full tags with data:", fullTags)
+			.filter(Boolean)
 
 		try {
-			const res = await createAndUpload.mutateAsync({
+			const record = await createRecord.mutateAsync({
 				title: data.title || "",
 				files: savedFiles,
-				date: data.date || "",
+				date: data.date ? new Date(data.date) : undefined,
 				tags: fullTags,
 			})
 
-			customToast("Документ успешно создан!", "success")
+			customToast("Документ создан и отправлен на обработку!", "success")
 			setOpen(false)
 			reset()
 			setSavedFiles([])
-			navigate({ to: "/dashboard/$id", params: { id: res.id } })
+			navigate({ to: "/dashboard/$id", params: { id: record.id } })
 		} catch (error) {
 			customToast(
 				"Ошибка при создании документа",
@@ -401,11 +399,8 @@ export default function CreateDocumentDialog() {
 								Отмена
 							</Button>
 						</DialogClose>
-						<Button
-							type="submit"
-							disabled={createAndUpload.isPending}
-						>
-							{createAndUpload.isPending
+						<Button type="submit" disabled={createRecord.isPending}>
+							{createRecord.isPending
 								? "Создание..."
 								: "Создать документ"}
 						</Button>

@@ -1,6 +1,7 @@
 import { IsString, IsIn } from "class-validator"
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger"
 import { DocumentStatus } from "generated/prisma"
+import { FailedPhase, type FailedPhaseValues } from "@shared-types"
 
 // ============ Request DTOs ============
 
@@ -14,12 +15,12 @@ export class RetryProcessingParamsDto {
 
 	@ApiProperty({
 		description: "Фаза обработки для перезапуска",
-		enum: ["parsing", "processing"],
-		example: "parsing",
+		enum: [FailedPhase.PARSING, FailedPhase.PROCESSING],
+		example: FailedPhase.PARSING,
 	})
 	@IsString()
-	@IsIn(["parsing", "processing"])
-	phase: "parsing" | "processing"
+	@IsIn([FailedPhase.PARSING, FailedPhase.PROCESSING])
+	phase: FailedPhaseValues
 }
 
 export class RecordIdParamDto {
@@ -48,10 +49,10 @@ export class RecoveryResponseDto {
 
 	@ApiProperty({
 		description: "Фаза обработки",
-		enum: ["parsing", "processing"],
-		example: "parsing",
+		enum: [FailedPhase.PARSING, FailedPhase.PROCESSING],
+		example: FailedPhase.PARSING,
 	})
-	phase: "parsing" | "processing"
+	phase: FailedPhaseValues
 
 	@ApiProperty({
 		description: "Количество документов в обработке",
@@ -82,8 +83,8 @@ export class DocumentStatusDto {
 
 	@ApiPropertyOptional({
 		description: "Фаза, на которой произошла ошибка",
-		enum: ["parsing", "processing"],
-		example: "parsing",
+		enum: [FailedPhase.PARSING, FailedPhase.PROCESSING],
+		example: FailedPhase.PARSING,
 		nullable: true,
 	})
 	failedPhase: string | null

@@ -12,10 +12,11 @@ import {
 	ApiOperation,
 	ApiResponse,
 	ApiParam,
+	ApiBody,
 	ApiBadRequestResponse,
 	ApiNotFoundResponse,
 } from "@nestjs/swagger"
-import { FailedPhaseValues } from "@shared-types"
+import { FailedPhase, FailedPhaseValues } from "@shared-types"
 import { RecoveryService } from "./recovery.service"
 import {
 	RecoveryResponseDto,
@@ -39,12 +40,12 @@ export class RecoveryController {
 		description: `
 Перезапускает обработку документов Record для указанной фазы.
 
-**Фаза "parsing":**
+**Фаза "PARSING":**
 - Находит документы со статусом FAILED и failedPhase="parsing"
 - Сбрасывает статус на PARSING
 - Добавляет задачи в очередь парсинга
 
-**Фаза "processing":**
+**Фаза "PROCESSING":**
 - Находит документы со статусом FAILED и failedPhase="processing"
 - Также включает документы со статусом PROCESSING (спарсены, но AI упал)
 - Добавляет задачу в очередь AI обработки
@@ -60,14 +61,15 @@ export class RecoveryController {
 	@ApiParam({
 		name: "phase",
 		description: "Фаза обработки для перезапуска",
-		enum: ["parsing", "processing"],
-		example: "parsing",
+		enum: ["PARSING", "PROCESSING"],
+		example: "PARSING",
 	})
 	@ApiResponse({
 		status: 200,
 		description: "Обработка успешно перезапущена",
 		type: RecoveryResponseDto,
 	})
+	@ApiBody({ required: false })
 	@ApiBadRequestResponse({
 		description: "Неверная фаза или нет документов для перезапуска",
 	})
@@ -79,9 +81,9 @@ export class RecoveryController {
 		@Param("phase") phase: string,
 	): Promise<RecoveryResponseDto> {
 		// Валидация фазы
-		if (phase !== "parsing" && phase !== "processing") {
+		if (phase !== FailedPhase.PARSING && phase !== FailedPhase.PROCESSING) {
 			throw new HttpException(
-				`Invalid phase: ${phase}. Must be "parsing" or "processing"`,
+				`Invalid phase: ${phase}. Must be "${FailedPhase.PARSING}" or "${FailedPhase.PROCESSING}"`,
 				HttpStatus.BAD_REQUEST,
 			)
 		}

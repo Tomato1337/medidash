@@ -15,9 +15,15 @@ export const DocumentStatus = {
 export type DocumentStatusValues =
 	(typeof DocumentStatus)[keyof typeof DocumentStatus]
 
+// export const FailedPhase = {
+// 	PARSING: "parsing",
+// 	PROCESSING: "processing",
+// } as const
 export const FailedPhase = {
-	PARSING: "parsing",
-	PROCESSING: "processing",
+    PARSING: DocumentStatus.PARSING,
+    PROCESSING: DocumentStatus.PROCESSING,
+    COMPRESSING: DocumentStatus.COMPRESSING,
+    UPLOADING: DocumentStatus.UPLOADING,
 } as const
 
 export type FailedPhaseValues = (typeof FailedPhase)[keyof typeof FailedPhase]

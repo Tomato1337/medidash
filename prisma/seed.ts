@@ -96,6 +96,79 @@ async function main() {
 			color: "#3B82F6",
 			isSystem: true,
 		},
+		// --- Новые добавленные тэги ---
+		{
+			name: "Выписки",
+			description: "Выписные эпикризы из стационара",
+			color: "#6366F1",
+			isSystem: true,
+		},
+		{
+			name: "Направления",
+			description: "Направления на обследования и консультации",
+			color: "#F43F5E",
+			isSystem: true,
+		},
+		{
+			name: "Справки",
+			description: "Медицинские справки и больничные",
+			color: "#64748B",
+			isSystem: true,
+		},
+		{
+			name: "Стоматология",
+			description: "Зубы и полость рта",
+			color: "#0EA5E9",
+			isSystem: true,
+		},
+		{
+			name: "Офтальмология",
+			description: "Зрение и глаза",
+			color: "#7C3AED",
+			isSystem: true,
+		},
+		{
+			name: "ЛОР",
+			description: "Оториноларингология",
+			color: "#2DD4BF",
+			isSystem: true,
+		},
+		{
+			name: "Гинекология",
+			description: "Женское здоровье",
+			color: "#DB2777",
+			isSystem: true,
+		},
+		{
+			name: "Урология",
+			description: "Мужское здоровье и мочевыделительная система",
+			color: "#2563EB",
+			isSystem: true,
+		},
+		{
+			name: "Хирургия",
+			description: "Оперативные вмешательства",
+			color: "#BE123C",
+			isSystem: true,
+		},
+		{
+			name: "Травматология",
+			description: "Травмы и переломы",
+			color: "#9F1239",
+			isSystem: true,
+		},
+		{
+			name: "Дерматология",
+			description: "Кожные заболевания",
+			color: "#EA580C",
+			isSystem: true,
+		},
+		{
+			name: "Гастроэнтерология",
+			description: "Желудочно-кишечный тракт",
+			color: "#D97706",
+			isSystem: true,
+		},
 	]
 
 	for (const tag of systemTags) {

@@ -20,34 +20,13 @@ export class DocumentProxyController {
 	constructor(private readonly httpClient: HttpClientService) {}
 
 	@Public()
-	@All("tags")
+	@All(["tags", "tags/*"])
 	async proxyTags(@Req() req: FastifyRequest): Promise<unknown> {
 		return this.proxyToDocumentService(req)
 	}
 
-	@Public()
-	@All("tags/*")
-	async proxyTagsSub(@Req() req: FastifyRequest): Promise<unknown> {
-		return this.proxyToDocumentService(req)
-	}
-
-	@All("documents/*")
+	@All(["documents/*", "documents", "records/*", "records"])
 	async proxyDocuments(@Req() req: FastifyRequest): Promise<unknown> {
-		return this.proxyToDocumentService(req)
-	}
-
-	@All("documents")
-	async proxyDocumentsBase(@Req() req: FastifyRequest): Promise<unknown> {
-		return this.proxyToDocumentService(req)
-	}
-
-	@All("records/*")
-	async proxyRecords(@Req() req: FastifyRequest): Promise<unknown> {
-		return this.proxyToDocumentService(req)
-	}
-
-	@All("records")
-	async proxyRecordsBase(@Req() req: FastifyRequest): Promise<unknown> {
 		return this.proxyToDocumentService(req)
 	}
 
@@ -61,7 +40,6 @@ export class DocumentProxyController {
 			headers["x-user-id"] = req.headers["x-user-id"] as string
 		}
 
-		// Проверяем, является ли запрос multipart/form-data
 		const contentType = req.headers["content-type"]
 		const isMultipart = contentType?.includes("multipart/form-data")
 

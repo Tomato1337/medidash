@@ -92,10 +92,17 @@ export class RecordResponseDto {
 		fileSize: number
 		fileName: string
 		originalFileName: string
+		failedPhase?: string | null
 	}>
 
 	@ApiProperty()
 	status: string
+
+	@ApiProperty({
+		required: false,
+		description: "Фаза, на которой произошла ошибка (PARSING | PROCESSING))",
+	})
+	failedPhase?: string | null
 
 	@ApiProperty()
 	updatedAt: Date

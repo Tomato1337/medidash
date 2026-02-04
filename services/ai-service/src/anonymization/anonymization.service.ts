@@ -40,16 +40,12 @@ export class AnonymizationService {
 
 	/**
 	 * Анонимизирует текст, заменяя персональные данные на плейсхолдеры
-	 * Использует Python сервис с Natasha NER
+	 * Использует Python сервис с spaCy NER
 	 */
 	async anonymize(text: string): Promise<AnonymizationResult> {
 		try {
 			const response = await this.client.post<AnonymizationResult>(
-<<<<<<< HEAD
 				"api/anonymize",
-=======
-				"/anonymize",
->>>>>>> 8408edc19e0ec428176702d3a873f78afe46d62a
 				{ text },
 			)
 
@@ -74,18 +70,14 @@ export class AnonymizationService {
 
 	/**
 	 * Извлекает текст из изображения с помощью OCR
-	 * Использует Python сервис с EasyOCR
+	 * Использует Python сервис с Tesseract
 	 */
 	async ocr(imageBuffer: Buffer, mimeType: string): Promise<OcrResult> {
 		try {
 			// Конвертируем Buffer в base64
 			const base64Image = imageBuffer.toString("base64")
 
-<<<<<<< HEAD
 			const response = await this.client.post<OcrResult>("api/ocr", {
-=======
-			const response = await this.client.post<OcrResult>("/ocr", {
->>>>>>> 8408edc19e0ec428176702d3a873f78afe46d62a
 				image: base64Image,
 				mimeType,
 			})

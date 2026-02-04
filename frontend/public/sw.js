@@ -94,13 +94,18 @@ async function handleGetRecord(request, url) {
 			// Return local data if:
 			// 1. Server documents array is empty
 			// 2. Local record is still uploading/compressing
+			const errorPhase = [
+				DocumentStatus.UPLOADING,
+				DocumentStatus.COMPRESSING,
+			]
 			if (
 				localRecord &&
 				(!data.documents?.length ||
-					localRecord.status === DocumentStatus.UPLOADING ||
-					localRecord.status === DocumentStatus.COMPRESSING)
+					errorPhase.includes(localRecord.status) ||
+					errorPhase.includes(localRecord.errorPhase))
 			) {
 				console.log("SW: Returning local record for", id)
+				console.log(localRecord)
 				return jsonResponse(localRecord)
 			}
 

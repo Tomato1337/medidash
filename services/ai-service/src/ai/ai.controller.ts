@@ -155,7 +155,7 @@ export class AiController {
 - ID: СНИЛС, паспорт, медицинские ID
 - OTHER: Прочие персональные данные
 
-Использует Python сервис с Natasha NER для русского языка.
+Использует Python сервис с spaCy NER для русского языка.
 		`,
 	})
 	@ApiResponse({

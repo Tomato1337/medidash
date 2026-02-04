@@ -8,18 +8,9 @@ export const envSchema = z.object({
 	// Gemini API
 	GEMINI_API_KEY: z.string().min(1, "GEMINI_API_KEY is required"),
 
-<<<<<<< HEAD
-	// Gemini API
-	GEMINI_API_KEY: z.string().min(1, "GEMINI_API_KEY is required"),
-
 	// Anonymizer Service (Python)
 	ANONYMIZER_SERVICE_URL: z.url().default("http://localhost:8000"),
 
-=======
-	// Anonymizer Service (Python)
-	ANONYMIZER_SERVICE_URL: z.string().url().default("http://localhost:8000"),
-
->>>>>>> 8408edc19e0ec428176702d3a873f78afe46d62a
 	// Rate limiting для Gemini API (free tier)
 	GEMINI_RATE_LIMIT_DELAY_MS: z.coerce.number().default(1500), // 1.5 sec между запросами
 })

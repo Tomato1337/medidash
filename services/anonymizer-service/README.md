@@ -4,13 +4,13 @@ Python FastAPI сервис для анонимизации текста и OCR 
 
 ## Функции
 
-- **Анонимизация текста**: Natasha NER для русского языка + regex паттерны
-- **OCR**: EasyOCR для извлечения текста из изображений (русский + английский)
+- **Анонимизация текста**: spaCy NER для русского языка + regex паттерны
+- **OCR**: Tesseract для извлечения текста из изображений (русский + английский)
 
 ## Распознаваемые типы PII
 
-- **NAME**: ФИО (через Natasha NER)
-- **ADDRESS**: Адреса (через Natasha NER)
+- **NAME**: ФИО (через spaCy NER)
+- **ADDRESS**: Адреса (через spaCy NER)
 - **PHONE**: Телефоны (regex)
 - **EMAIL**: Email адреса (regex)
 - **DATE**: Даты (regex)
@@ -54,24 +54,31 @@ OCR изображения (base64).
 ## Технологии
 
 - **FastAPI**: Web framework
-- **Natasha**: NER для русского языка
-- **EasyOCR**: OCR (русский + английский)
+- **spaCy**: NER для русского языка (ru_core_news_md)
+- **Tesseract**: OCR (русский + английский)
 - **Pillow**: Обработка изображений
 
 ## Docker
 
 ```dockerfile
 docker build -t anonymizer-service .
-docker run -p 8000:8000 -v easyocr_models:/root/.EasyOCR anonymizer-service
+docker run -p 8000:8000 anonymizer-service
 ```
 
-**Важно**: Используйте volume для кеширования моделей EasyOCR (`/root/.EasyOCR`).
+**Важно**: Для работы OCR нужно, чтобы Tesseract был установлен в образе (уже включено в Dockerfile).
 
 ## Локальный запуск
 
 ```bash
 pip install -r requirements.txt
 uvicorn main:app --host 0.0.0.0 --port 8000
+```
+
+Для локального запуска необходим установленный Tesseract OCR:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y tesseract-ocr tesseract-ocr-rus tesseract-ocr-eng
 ```
 
 ## Переменные окружения
@@ -82,6 +89,5 @@ LOG_LEVEL=info
 
 ## Особенности
 
-- **Ленивая загрузка EasyOCR**: Модели загружаются при первом OCR запросе
-- **Timeout**: OCR может занимать до 120 секунд для больших изображений
-- **GPU**: По умолчанию CPU (`gpu=False`), можно включить GPU при необходимости
+- **Быстрый OCR через Tesseract**: Оптимизация размера изображений для ускорения
+- **Timeout**: OCR может занимать время для больших изображений

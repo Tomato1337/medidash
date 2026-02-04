@@ -41,8 +41,8 @@ async function bootstrap() {
 Функции:
 - Генерация эмбеддингов (Gemini text-embedding-004, 768 dimensions)
 - Генерация резюме (Gemini 2.0 Flash)
-- Анонимизация текста (Natasha NER)
-- OCR для изображений (EasyOCR)
+- Анонимизация текста (spaCy NER)
+- OCR для изображений (Tesseract)
 			`,
 		)
 		.setVersion("1.0")

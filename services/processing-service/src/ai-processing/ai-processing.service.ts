@@ -305,7 +305,6 @@ export class AiProcessingService {
 	 * Генерирует саммари документа через AI Service
 	 * TONL используется здесь для экономии токенов (это LLM вызов)
 	 */
-<<<<<<< HEAD
 	async generateSummary(text: string): Promise<{
 		title: string
 		summary: string
@@ -318,11 +317,6 @@ export class AiProcessingService {
 		}>
 		tokensUsed: number
 	}> {
-=======
-	async generateSummary(
-		text: string,
-	): Promise<{ summary: string; tokensUsed: number }> {
->>>>>>> 8408edc19e0ec428176702d3a873f78afe46d62a
 		const { optimized, originalLength, optimizedLength } =
 			this.optimizeWithTONL(text)
 
@@ -332,7 +326,6 @@ export class AiProcessingService {
 
 		try {
 			const response = await this.httpClient.post<{
-<<<<<<< HEAD
 				title: string
 				summary: string
 				report: string
@@ -342,9 +335,6 @@ export class AiProcessingService {
 					color: string
 					isSystem: boolean
 				}>
-=======
-				summary: string
->>>>>>> 8408edc19e0ec428176702d3a873f78afe46d62a
 				tokensUsed: number
 			}>("/api/ai/summary", { text: optimized })
 
@@ -353,14 +343,10 @@ export class AiProcessingService {
 			)
 
 			return {
-<<<<<<< HEAD
 				title: response.data.title,
 				summary: response.data.summary,
 				report: response.data.report,
 				tags: response.data.tags,
-=======
-				summary: response.data.summary,
->>>>>>> 8408edc19e0ec428176702d3a873f78afe46d62a
 				tokensUsed: response.data.tokensUsed,
 			}
 		} catch (error) {

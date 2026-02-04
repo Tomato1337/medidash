@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Web framework
 fastapi==0.109.0
 uvicorn[standard]==0.27.0
@@ -9,18 +8,9 @@ pydantic==2.5.3
 pydantic-settings==2.1.0
 
 # NLP для анонимизации (русский язык)
-natasha==1.6.0
+spacy==3.7.4
+https://github.com/explosion/spacy-models/releases/download/ru_core_news_md-3.7.0/ru_core_news_md-3.7.0-py3-none-any.whl
 
-# OCR (PyTorch устанавливается отдельно в Dockerfile как CPU-версия)
-easyocr==1.7.1
+# OCR
+pytesseract==0.3.10
 pillow==10.2.0
-=======
-fastapi==0.109.0
-uvicorn[standard]==0.27.0
-python-multipart==0.0.6
-easyocr==1.7.1
-pillow==10.2.0
-natasha==1.6.0
-pydantic==2.5.3
-pydantic-settings==2.1.0
->>>>>>> 8408edc19e0ec428176702d3a873f78afe46d62a

@@ -2,35 +2,22 @@
 Anonymizer Service - Python FastAPI сервис для анонимизации текста и OCR
 
 Функции:
-- Анонимизация персональных данных (Natasha NER + regex)
-- OCR изображений (EasyOCR, русский + английский)
+- Анонимизация персональных данных (spaCy NER + regex)
+- OCR изображений (Tesseract, русский + английский)
 """
 
-import re
 import base64
 import logging
-from io import BytesIO
-from typing import List, Optional
+import re
 from enum import Enum
+from io import BytesIO
+from typing import Dict, List, Set, Tuple
 
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+import pytesseract
+import spacy
+from fastapi import APIRouter, FastAPI, HTTPException
 from PIL import Image
-
-# Natasha для NER на русском языке
-from natasha import (
-    Segmenter,
-    MorphVocab,
-    NewsEmbedding,
-    NewsNERTagger,
-    NamesExtractor,
-    DatesExtractor,
-    AddrExtractor,
-    Doc,
-)
-
-# Ленивая загрузка EasyOCR (занимает время)
-easyocr_reader = None
+from pydantic import BaseModel
 
 # ============================================================================
 # LOGGING
@@ -42,18 +29,12 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ============================================================================
-# NATASHA SETUP
+# SPACY SETUP
 # ============================================================================
 
-logger.info("Initializing Natasha NER...")
-segmenter = Segmenter()
-morph_vocab = MorphVocab()
-emb = NewsEmbedding()
-ner_tagger = NewsNERTagger(emb)
-names_extractor = NamesExtractor(morph_vocab)
-dates_extractor = DatesExtractor(morph_vocab)
-addr_extractor = AddrExtractor(morph_vocab)
-logger.info("✅ Natasha NER initialized")
+logger.info("Initializing spaCy NER...")
+nlp = spacy.load("ru_core_news_md")
+logger.info("✅ spaCy NER initialized")
 
 # ============================================================================
 # MODELS
@@ -98,239 +79,401 @@ class OcrResponse(BaseModel):
 
 class HealthResponse(BaseModel):
     status: str
-    natasha_ready: bool
-    easyocr_ready: bool
+    spacy_ready: bool
+    tesseract_ready: bool
 
 
 # ============================================================================
-# REGEX PATTERNS
-# ============================================================================
-
-# Телефоны (российские форматы)
-PHONE_PATTERNS = [
-    r"\+7[\s\-]?\(?\d{3}\)?[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}",
-    r"8[\s\-]?\(?\d{3}\)?[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}",
-    r"\(\d{3}\)[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}",
-    r"\d{3}[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}",
-]
-
-# Email
-EMAIL_PATTERN = r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
-
-# СНИЛС
-SNILS_PATTERN = r"\d{3}[\s\-]?\d{3}[\s\-]?\d{3}[\s\-]?\d{2}"
-
-# Паспорт (серия номер)
-PASSPORT_PATTERN = r"\d{2}[\s]?\d{2}[\s]?\d{6}"
-
-# ИНН
-INN_PATTERN = r"\b\d{10}\b|\b\d{12}\b"
-
-# Полис ОМС
-OMS_PATTERN = r"\d{16}"
-
-# Даты (различные форматы)
-DATE_PATTERNS = [
-    r"\d{2}[./]\d{2}[./]\d{4}",
-    r"\d{2}[./]\d{2}[./]\d{2}",
-    r"\d{4}[./]\d{2}[./]\d{2}",
-]
-
-# ============================================================================
-# ANONYMIZATION FUNCTIONS
+# ANONYMIZER
 # ============================================================================
 
 
-def anonymize_with_natasha(text: str) -> tuple[str, List[PiiMapping]]:
-    """Анонимизация с использованием Natasha NER"""
-    doc = Doc(text)
-    doc.segment(segmenter)
-    doc.tag_ner(ner_tagger)
+class MedicalTextAnonymizer:
+    """Класс для анонимизации медицинских документов на русском языке"""
 
-    mappings: List[PiiMapping] = []
-    name_counter = 0
-    loc_counter = 0
-    org_counter = 0
+    def __init__(self, model: "spacy.language.Language"):
+        self.nlp = model
 
-    # Собираем все спаны для замены (сортируем по позиции в обратном порядке)
-    spans_to_replace = []
+        self.patterns = {
+            "contextual_name": [
+                r"(?:пациент|врач|доктор|исполнитель|фио)[:\s]+([А-ЯЁ][а-яё]+\s+[А-ЯЁ][а-яё]+(?:\s+[А-ЯЁ][а-яё]+)?)",
+                r"(?:пациент|врач|доктор|исполнитель|фио)[:\s]+([А-ЯЁ]+\s+[А-ЯЁ]+(?:\s+[А-ЯЁ]+)?)",
+                r"(?:пациент|врач|доктор|исполнитель|фио)[:\s]+([а-яё]+\s+[а-яё]+(?:\s+[а-яё]+)?)",
+            ],
+            "age": [
+                r"\b\d{1,3}\s*(?:лет|года|год)\b",
+                r"\bвозраст[:\s]+\d{1,3}\s*(?:лет|года|год)?\b",
+            ],
+            "phone": [
+                r"\+?7[\s\-]?\(?\d{3}\)?[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}",
+                r"8[\s\-]?\(?\d{3}\)?[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}",
+            ],
+            "snils": [
+                r"\b\d{3}[\s\-]?\d{3}[\s\-]?\d{3}[\s\-]?\d{2}\b",
+            ],
+            "passport": [
+                r"\b\d{4}[\s№]?\d{6}\b",
+                r"[IVXLCDМ]{1,3}[\s\-]?[А-ЯЁ]{2}[\s]?№?\d{6,7}",
+            ],
+            "inn": [
+                r"\bинн[\s:№]*\d{10}\b",
+                r"\bинн[\s:№]*\d{12}\b",
+            ],
+            "oms": [
+                r"\bполис[\s]*(омс)?[\s:№]*\d{16}\b",
+            ],
+            "date_birth": [
+                r"\b(?:0?[1-9]|[12][0-9]|3[01])[./\-](?:0?[1-9]|1[012])[./\-](?:19|20)?\d{2}\b",
+                r"\b(?:19|20)\d{2}[./\-](?:0?[1-9]|1[012])[./\-](?:0?[1-9]|[12][0-9]|3[01])\b",
+            ],
+            "email": [
+                r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Z|a-z]{2,}\b",
+            ],
+            "initials": [
+                r"\b[А-ЯЁа-яё]\.[А-ЯЁа-яё]\.",
+                r"\b[А-ЯЁа-яё]\.\s?[А-ЯЁа-яё]\.",
+            ],
+        }
 
-    for span in doc.spans:
-        if span.type == "PER":
-            name_counter += 1
-            replacement = f"[ИМЯ_{name_counter}]"
-            pii_type = PiiType.NAME
-        elif span.type == "LOC":
-            loc_counter += 1
-            replacement = f"[АДРЕС_{loc_counter}]"
-            pii_type = PiiType.ADDRESS
-        elif span.type == "ORG":
-            org_counter += 1
-            replacement = f"[ОРГАНИЗАЦИЯ_{org_counter}]"
-            pii_type = PiiType.OTHER
-        else:
-            continue
+        self.medical_stopwords: Set[str] = {
+            "головной мозг",
+            "белое вещество",
+            "серое вещество",
+            "кора мозга",
+            "боковые желудочки",
+            "третий желудочек",
+            "четвертый желудочек",
+            "мозжечок",
+            "ствол мозга",
+            "мозолистое тело",
+            "гипофиз",
+            "хиазма",
+            "миндалины мозжечка",
+            "срединные структуры",
+            "конвекситальные пространства",
+            "субарахноидальные пространства",
+            "мостомозжечковые углы",
+            "внутренние слуховые",
+            "затылочное отверстие",
+            "боковые щели",
+            "воронка гипофиза",
+            "хиазмальная область",
+            "перивентрикулярная инфильтрация",
+            "глазные яблоки",
+            "придаточные пазухи",
+            "пазухи носа",
+            "орбиты",
+            "мр сигнал",
+            "контрастное усиление",
+            "режимах",
+            "проекциях",
+            "структурных изменений",
+            "очаговые изменения",
+            "диффузные изменения",
+            "патологических изменений",
+            "дополнительных образований",
+            "диагноз",
+            "заключение",
+            "исследование",
+            "анализ",
+            "протокол",
+            "область исследования",
+            "метод",
+            "описание",
+            "результат",
+            "пневматизация",
+            "инфильтрация",
+            "конфигурация",
+            "симметричны",
+            "расширены",
+            "деформирован",
+            "смещены",
+            "увеличен",
+            "обычной формы",
+            "правильно развиты",
+            "нормальная интенсивность",
+            "москва",
+            "санкт петербург",
+            "петербург",
+            "россия",
+            "российская федерация",
+            "январь",
+            "февраль",
+            "март",
+            "апрель",
+            "май",
+            "июнь",
+            "июль",
+            "август",
+            "сентябрь",
+            "октябрь",
+            "ноябрь",
+            "декабрь",
+            "понедельник",
+            "вторник",
+            "среда",
+            "четверг",
+            "пятница",
+            "суббота",
+            "воскресенье",
+            "улица",
+            "проспект",
+            "переулок",
+            "площадь",
+            "район",
+            "область",
+            "поликлиника",
+            "больница",
+            "клиника",
+            "госпиталь",
+            "центр",
+            "медицинский центр",
+            "диагностический центр",
+        }
 
-        spans_to_replace.append(
-            (span.start, span.stop, span.text, replacement, pii_type)
+        self.replacements = {
+            "PER": "[ИМЯ]",
+            "PERSON": "[ИМЯ]",
+            "LOC": "[АДРЕС]",
+            "GPE": "[АДРЕС]",
+            "ORG": "[ОРГАНИЗАЦИЯ]",
+            "contextual_name": "[ИМЯ]",
+            "age": "[ВОЗРАСТ]",
+            "phone": "[ТЕЛЕФОН]",
+            "snils": "[СНИЛС]",
+            "passport": "[ПАСПОРТ]",
+            "inn": "[ИНН]",
+            "oms": "[ОМС]",
+            "date_birth": "[ДАТА]",
+            "email": "[EMAIL]",
+            "initials": "[ИНИЦИАЛЫ]",
+        }
+
+        self.pii_type_map = {
+            "PER": PiiType.NAME,
+            "PERSON": PiiType.NAME,
+            "contextual_name": PiiType.NAME,
+            "LOC": PiiType.ADDRESS,
+            "GPE": PiiType.ADDRESS,
+            "ORG": PiiType.OTHER,
+            "phone": PiiType.PHONE,
+            "email": PiiType.EMAIL,
+            "date_birth": PiiType.DATE,
+            "age": PiiType.OTHER,
+            "snils": PiiType.ID,
+            "passport": PiiType.ID,
+            "inn": PiiType.ID,
+            "oms": PiiType.ID,
+            "initials": PiiType.NAME,
+        }
+
+    def is_medical_term(self, text: str) -> bool:
+        text_lower = text.lower().strip()
+
+        if text_lower in self.medical_stopwords:
+            return True
+
+        for stopword in self.medical_stopwords:
+            if stopword in text_lower or text_lower in stopword:
+                return True
+
+        medical_patterns = [
+            r"\bт[12]\b",
+            r"\bt[12]\b",
+            r"\bflair\b",
+            r"\bdwi\b",
+            r"желудочк",
+            r"вещество",
+            r"структур",
+            r"изменени",
+            r"расширен",
+            r"деформ",
+            r"смещен",
+            r"образовани",
+        ]
+
+        for pattern in medical_patterns:
+            if re.search(pattern, text_lower):
+                return True
+
+        return False
+
+    def find_regex_matches(self, text: str) -> List[Tuple[int, int, str]]:
+        matches = []
+
+        for category, patterns in self.patterns.items():
+            for pattern in patterns:
+                for match in re.finditer(pattern, text, re.IGNORECASE | re.UNICODE):
+                    if category == "contextual_name":
+                        if match.groups():
+                            name_group = match.group(1)
+                            name_start = match.start(1)
+                            name_end = match.end(1)
+
+                            if not self.is_medical_term(name_group):
+                                matches.append((name_start, name_end, category))
+                        continue
+
+                    if category == "date_birth":
+                        window = text[max(0, match.start() - 10) : match.end() + 10].lower()
+                        if any(x in window for x in ["мм рт", "мкг", "мг/", "ед/"]):
+                            continue
+
+                    matches.append((match.start(), match.end(), category))
+
+        return sorted(matches, key=lambda x: x[0])
+
+    def find_ner_entities(self, text: str) -> List[Tuple[int, int, str]]:
+        doc = self.nlp(text)
+
+        entities = []
+        for ent in doc.ents:
+            if ent.label_ in ["PER", "PERSON"] and not self.is_medical_term(ent.text):
+                entities.append((ent.start_char, ent.end_char, ent.label_))
+            elif ent.label_ in ["LOC", "GPE", "ORG"]:
+                entities.append((ent.start_char, ent.end_char, ent.label_))
+
+        return entities
+
+    def merge_overlapping(
+        self, entities: List[Tuple[int, int, str]]
+    ) -> List[Tuple[int, int, str]]:
+        if not entities:
+            return []
+
+        merged = []
+        current = entities[0]
+
+        for next_entity in entities[1:]:
+            if next_entity[0] <= current[1] + 2:
+                priority_order = [
+                    "phone",
+                    "snils",
+                    "passport",
+                    "inn",
+                    "oms",
+                    "email",
+                    "age",
+                    "initials",
+                    "date_birth",
+                    "contextual_name",
+                    "PERSON",
+                    "PER",
+                    "ORG",
+                    "LOC",
+                    "GPE",
+                ]
+
+                current_priority = (
+                    priority_order.index(current[2])
+                    if current[2] in priority_order
+                    else 999
+                )
+                next_priority = (
+                    priority_order.index(next_entity[2])
+                    if next_entity[2] in priority_order
+                    else 999
+                )
+
+                better_label = current[2] if current_priority <= next_priority else next_entity[2]
+
+                current = (
+                    min(current[0], next_entity[0]),
+                    max(current[1], next_entity[1]),
+                    better_label,
+                )
+            else:
+                merged.append(current)
+                current = next_entity
+
+        merged.append(current)
+        return merged
+
+    def anonymize_text(self, text: str) -> AnonymizeResponse:
+        ner_entities = self.find_ner_entities(text)
+        regex_matches = self.find_regex_matches(text)
+
+        merged_entities = self.merge_overlapping(
+            sorted(ner_entities + regex_matches, key=lambda x: x[0])
         )
 
-    # Сортируем по позиции в обратном порядке
-    spans_to_replace.sort(key=lambda x: x[0], reverse=True)
+        replacements: List[Tuple[int, int, str, PiiType, str]] = []
+        label_counters: Dict[str, int] = {}
 
-    result = text
-    for start, stop, original, replacement, pii_type in spans_to_replace:
-        result = result[:start] + replacement + result[stop:]
-        mappings.append(
+        for start, end, label in merged_entities:
+            pii_type = self.pii_type_map.get(label, PiiType.OTHER)
+            base_label = self.replacements.get(label, "[ДАННЫЕ]")
+            if base_label.startswith("[") and base_label.endswith("]"):
+                base_label = base_label[1:-1]
+
+            label_counters[base_label] = label_counters.get(base_label, 0) + 1
+            replacement = f"[{base_label}_{label_counters[base_label]}]"
+            original = text[start:end]
+            replacements.append((start, end, replacement, pii_type, original))
+
+        result = text
+        for start, end, replacement, _, _ in reversed(replacements):
+            result = result[:start] + replacement + result[end:]
+
+        mappings = [
             PiiMapping(original=original, replacement=replacement, type=pii_type)
-        )
+            for _, _, replacement, pii_type, original in replacements
+        ]
 
-    return result, mappings
-
-
-def anonymize_with_regex(text: str) -> tuple[str, List[PiiMapping]]:
-    """Анонимизация с использованием regex паттернов"""
-    mappings: List[PiiMapping] = []
-    result = text
-
-    # Телефоны
-    phone_counter = 0
-    for pattern in PHONE_PATTERNS:
-        for match in re.finditer(pattern, result):
-            phone_counter += 1
-            original = match.group()
-            replacement = f"[ТЕЛЕФОН_{phone_counter}]"
-            result = result.replace(original, replacement, 1)
-            mappings.append(
-                PiiMapping(
-                    original=original, replacement=replacement, type=PiiType.PHONE
-                )
-            )
-
-    # Email
-    email_counter = 0
-    for match in re.finditer(EMAIL_PATTERN, result):
-        email_counter += 1
-        original = match.group()
-        replacement = f"[EMAIL_{email_counter}]"
-        result = result.replace(original, replacement, 1)
-        mappings.append(
-            PiiMapping(original=original, replacement=replacement, type=PiiType.EMAIL)
-        )
-
-    # СНИЛС
-    snils_counter = 0
-    for match in re.finditer(SNILS_PATTERN, result):
-        snils_counter += 1
-        original = match.group()
-        replacement = f"[СНИЛС_{snils_counter}]"
-        result = result.replace(original, replacement, 1)
-        mappings.append(
-            PiiMapping(original=original, replacement=replacement, type=PiiType.ID)
-        )
-
-    # Паспорт
-    passport_counter = 0
-    for match in re.finditer(PASSPORT_PATTERN, result):
-        passport_counter += 1
-        original = match.group()
-        replacement = f"[ПАСПОРТ_{passport_counter}]"
-        result = result.replace(original, replacement, 1)
-        mappings.append(
-            PiiMapping(original=original, replacement=replacement, type=PiiType.ID)
-        )
-
-    # Даты (осторожно - могут быть ложные срабатывания)
-    date_counter = 0
-    for pattern in DATE_PATTERNS:
-        for match in re.finditer(pattern, result):
-            date_counter += 1
-            original = match.group()
-            replacement = f"[ДАТА_{date_counter}]"
-            result = result.replace(original, replacement, 1)
-            mappings.append(
-                PiiMapping(
-                    original=original, replacement=replacement, type=PiiType.DATE
-                )
-            )
-
-    return result, mappings
+        return AnonymizeResponse(anonymizedText=result, piiMappings=mappings)
 
 
-def anonymize_text(text: str) -> AnonymizeResponse:
-    """Полная анонимизация текста: NER + regex"""
-    # Сначала NER
-    result, ner_mappings = anonymize_with_natasha(text)
-
-    # Затем regex для того, что NER не поймал
-    result, regex_mappings = anonymize_with_regex(result)
-
-    all_mappings = ner_mappings + regex_mappings
-
-    logger.info(f"Anonymized text: {len(all_mappings)} PII items found")
-
-    return AnonymizeResponse(anonymizedText=result, piiMappings=all_mappings)
-
+anonymizer = MedicalTextAnonymizer(nlp)
 
 # ============================================================================
 # OCR FUNCTIONS
 # ============================================================================
 
 
-def get_easyocr_reader():
-    """Ленивая инициализация EasyOCR reader"""
-    global easyocr_reader
-    if easyocr_reader is None:
-        logger.info("Initializing EasyOCR (this may take a while)...")
-        import easyocr
+def get_image_from_base64(image_base64: str) -> Image.Image:
+    try:
+        image_data = base64.b64decode(image_base64)
+    except Exception as exc:
+        raise ValueError("Invalid base64 image") from exc
 
-        easyocr_reader = easyocr.Reader(["ru", "en"], gpu=False)
-        logger.info("✅ EasyOCR initialized")
-    return easyocr_reader
+    return Image.open(BytesIO(image_data))
 
 
-def extract_text_from_image(image_data: bytes) -> OcrResponse:
-    """Извлекает текст из изображения с помощью EasyOCR"""
-    reader = get_easyocr_reader()
+def extract_text_from_image(image: Image.Image) -> OcrResponse:
+    try:
+        if image.mode != "RGB":
+            image = image.convert("RGB")
 
-    # Открываем изображение
-    image = Image.open(BytesIO(image_data))
+        if max(image.size) > 2500:
+            ratio = 2500.0 / max(image.size)
+            new_size = (int(image.size[0] * ratio), int(image.size[1] * ratio))
+            image = image.resize(new_size, Image.Resampling.LANCZOS)
 
-    # Конвертируем в RGB если нужно
-    if image.mode != "RGB":
-        image = image.convert("RGB")
+        text = pytesseract.image_to_string(image, lang="rus+eng")
 
-    # OCR
-    results = reader.readtext(image)
+        data = pytesseract.image_to_data(
+            image, lang="rus+eng", output_type=pytesseract.Output.DICT
+        )
+        confidences: List[float] = []
+        for conf in data.get("conf", []):
+            try:
+                value = float(conf)
+            except (TypeError, ValueError):
+                continue
+            if value >= 0:
+                confidences.append(value)
 
-    if not results:
-        return OcrResponse(text="", confidence=0.0, language="unknown")
+        avg_confidence = sum(confidences) / len(confidences) / 100 if confidences else 0.0
 
-    # Собираем текст и считаем среднюю уверенность
-    texts = []
-    confidences = []
-
-    for bbox, text, confidence in results:
-        texts.append(text)
-        confidences.append(confidence)
-
-    full_text = " ".join(texts)
-    avg_confidence = sum(confidences) / len(confidences) if confidences else 0.0
-
-    logger.info(
-        f"OCR completed: {len(full_text)} chars, confidence: {avg_confidence:.2f}"
-    )
-
-    return OcrResponse(
-        text=full_text, confidence=avg_confidence, language="ru"  # Предполагаем русский
-    )
+        return OcrResponse(text=text, confidence=avg_confidence, language="ru")
+    except Exception as exc:
+        logger.error("OCR error: %s", exc)
+        raise
 
 
 # ============================================================================
 # FASTAPI APP
 # ============================================================================
-
-from fastapi import APIRouter
 
 app = FastAPI(
     title="Anonymizer Service",
@@ -338,67 +481,45 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# Роутер с префиксом /api
 router = APIRouter(prefix="/api")
 
 
 @router.get("/health", response_model=HealthResponse)
 async def health_check():
-    """Проверка здоровья сервиса"""
-    return HealthResponse(
-        status="ok", natasha_ready=True, easyocr_ready=easyocr_reader is not None
-    )
+    return HealthResponse(status="ok", spacy_ready=True, tesseract_ready=True)
 
 
 @router.post("/anonymize", response_model=AnonymizeResponse)
 async def anonymize(request: AnonymizeRequest):
-    """
-    Анонимизирует текст, заменяя персональные данные на плейсхолдеры.
-
-    Использует:
-    - Natasha NER для распознавания имён, адресов, организаций
-    - Regex для телефонов, email, СНИЛС, паспортов, дат
-    """
     if not request.text:
         raise HTTPException(status_code=400, detail="Text is required")
 
     try:
-        return anonymize_text(request.text)
-    except Exception as e:
-        logger.error(f"Anonymization error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        return anonymizer.anonymize_text(request.text)
+    except Exception as exc:
+        logger.error("Anonymization error: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 @router.post("/ocr", response_model=OcrResponse)
 async def ocr(request: OcrRequest):
-    """
-    Извлекает текст из изображения с помощью EasyOCR.
-
-    Поддерживает русский и английский языки.
-    Изображение передаётся в base64.
-    """
     if not request.image:
         raise HTTPException(status_code=400, detail="Image is required")
 
     try:
-        # Декодируем base64
-        image_data = base64.b64decode(request.image)
-        return extract_text_from_image(image_data)
-    except Exception as e:
-        logger.error(f"OCR error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        image = get_image_from_base64(request.image)
+        return extract_text_from_image(image)
+    except Exception as exc:
+        logger.error("OCR error: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
-# Подключаем роутер к приложению
 app.include_router(router)
 
 
 @app.on_event("startup")
 async def startup_event():
-    """Предзагрузка EasyOCR при старте (опционально)"""
     logger.info("Anonymizer Service starting...")
-    # Можно раскомментировать для предзагрузки OCR:
-    # get_easyocr_reader()
 
 
 if __name__ == "__main__":

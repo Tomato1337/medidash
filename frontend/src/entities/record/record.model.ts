@@ -70,8 +70,8 @@ export type UnifiedRecord = ServerRecord | LocalRecord
 // TYPE GUARDS (using Zod)
 // =============================================================================
 
-export function isLocalRecord(data: unknown): data is LocalRecord {
-	return localRecordSchema.safeParse(data).success
+export function isLocalRecord(data: UnifiedRecord): data is LocalRecord {
+	return "isLocal" in data && data.isLocal === true
 }
 
 // =============================================================================

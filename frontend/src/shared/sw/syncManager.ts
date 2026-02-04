@@ -34,7 +34,7 @@ export class SyncManager {
 			console.error("SyncManager: Sync failed:", error)
 		} finally {
 			this.isRunning = false
-            revalidate()
+			revalidate()
 		}
 	}
 
@@ -42,15 +42,9 @@ export class SyncManager {
 	// COMPRESSION
 	// =========================================================================
 
-	async compress(recordId: string, revalidate: () => void): Promise<void> {
+	async compress(recordId: string, revalidate?: () => void): Promise<void> {
 		const record = await db.records.get(recordId)
 		if (!record) throw new Error("Record not found")
-
-		// Update record status
-		await db.records.update(recordId, {
-			status: DocumentStatus.COMPRESSING,
-			syncStatus: "compressing",
-		})
 
 		// Get documents to compress (PENDING or FAILED with compression error)
 		const docsToCompress = record.documents.filter(
@@ -64,6 +58,12 @@ export class SyncManager {
 			console.log("SyncManager: No documents to compress")
 			return
 		}
+
+		// Update record status
+		await db.records.update(recordId, {
+			status: DocumentStatus.COMPRESSING,
+			syncStatus: "compressing",
+		})
 
 		// Update their status to COMPRESSING
 		await db.records.update(recordId, {
@@ -114,14 +114,14 @@ export class SyncManager {
 			syncStatus: "uploading",
 		})
 
-		revalidate()
+		revalidate?.()
 	}
 
 	// =========================================================================
 	// UPLOAD
 	// =========================================================================
 
-	async upload(recordId: string, revalidate: () => void): Promise<void> {
+	async upload(recordId: string, revalidate?: () => void): Promise<void> {
 		const record = await db.records.get(recordId)
 		if (!record) throw new Error("Record not found")
 
@@ -182,13 +182,13 @@ export class SyncManager {
 			await db.records.delete(recordId)
 		}
 
-		revalidate()
+		revalidate?.()
 	}
 
 	private async uploadDocument(
 		recordId: string,
 		doc: IDBDocument,
-		revalidate: () => void,
+		revalidate?: () => void,
 	): Promise<void> {
 		try {
 			const fileToUpload = doc.compressed ?? doc.file
@@ -246,7 +246,7 @@ export class SyncManager {
 			})
 
 			console.log("SyncManager: Upload complete for", doc.file.name)
-			revalidate()
+			revalidate?.()
 		} catch (error) {
 			await this.setDocumentError(
 				recordId,

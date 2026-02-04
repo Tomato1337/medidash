@@ -2,6 +2,7 @@ import { documentDownloadMutationOptions } from "@/entities/document"
 import { Badge } from "@/shared/ui/badge"
 import { Button } from "@/shared/ui/button"
 import { FileCard } from "@/entities/document/ui/file-card"
+import { Markdown } from "@/shared/ui/markdown"
 import {
 	Loader2,
 	ArrowLeft,
@@ -62,7 +63,7 @@ export default function RecordPage({ id }: RecordPageProps) {
 	}, [record])
 
 	const handleRetry = (record) => {
-		console.log(record)
+		console.log("Retry ----", record)
 		retryRecord.mutate({
 			recordId: record.id,
 			phase: record.failedPhase,
@@ -121,7 +122,7 @@ export default function RecordPage({ id }: RecordPageProps) {
 		if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
 		return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 	}
-
+	console.log("IsLocal", record, isLocal)
 	return (
 		<div className="container mx-auto max-w-4xl py-6">
 			{/* Хедер */}
@@ -264,11 +265,9 @@ export default function RecordPage({ id }: RecordPageProps) {
 					<h2 className="text-foreground mb-4 text-lg font-semibold">
 						Описание
 					</h2>
-					<p className="text-foreground leading-relaxed">
-						{typeof record.description === "string"
-							? record.description
-							: ""}
-					</p>
+					{typeof record.description === "string" && (
+						<Markdown content={record.description} />
+					)}
 				</div>
 			)}
 
@@ -279,27 +278,37 @@ export default function RecordPage({ id }: RecordPageProps) {
 				</h2>
 				<div className="space-y-3">
 					{isLocal &&
-						record.documents?.map((fileData, index) => (
-							<FileCard
-								key={index}
-								fileName={fileData.file.name}
-								fileSize={formatFileSize(fileData.file.size)}
-								status={fileData.status}
-							/>
-						))}
+						record.documents?.map((fileData, index) => {
+							console.log("Local ----", fileData)
+							return (
+								<FileCard
+									key={index}
+									fileName={fileData.file.name}
+									fileSize={formatFileSize(
+										fileData.file.size,
+									)}
+									status={fileData.status}
+								/>
+							)
+						})}
 					{!isLocal &&
-						record.documents?.map((file, index: number) => (
-							<FileCard
-								key={index}
-								fileName={file.fileName || ""}
-								fileSize={formatFileSize(file.fileSize || 0)}
-								status={file.status}
-								onDownload={() => {
-									console.log("Download", file.fileName)
-									handleDownloadFile(file?.id || "")
-								}}
-							/>
-						))}
+						record.documents?.map((file, index: number) => {
+							console.log("True")
+							return (
+								<FileCard
+									key={index}
+									fileName={file.fileName || ""}
+									fileSize={formatFileSize(
+										file.fileSize || 0,
+									)}
+									status={file.status}
+									onDownload={() => {
+										console.log("Download", file.fileName)
+										handleDownloadFile(file?.id || "")
+									}}
+								/>
+							)
+						})}
 				</div>
 			</div>
 		</div>

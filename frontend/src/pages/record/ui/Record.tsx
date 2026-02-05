@@ -63,7 +63,6 @@ export default function RecordPage({ id }: RecordPageProps) {
 	}, [record])
 
 	const handleRetry = (record) => {
-		console.log("Retry ----", record)
 		retryRecord.mutate({
 			recordId: record.id,
 			phase: record.failedPhase,
@@ -73,7 +72,6 @@ export default function RecordPage({ id }: RecordPageProps) {
 	const handleDownloadFile = (documentId: string) => {
 		documentDownloadMutation.mutate(documentId, {
 			onSuccess: (data) => {
-				console.log(data)
 				const { downloadUrl } = data
 				const link = document.createElement("a")
 				link.target = "_blank"
@@ -122,17 +120,17 @@ export default function RecordPage({ id }: RecordPageProps) {
 		if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
 		return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 	}
-	console.log("IsLocal", record, isLocal)
 	return (
 		<div className="container mx-auto max-w-4xl py-6">
 			{/* Хедер */}
-			<div className="mb-6 flex items-center justify-between">
+			<div className="mb-6 flex flex-wrap items-center justify-between gap-3">
 				<Button
 					variant="ghost"
 					onClick={() => navigate({ to: "/dashboard" })}
 					className="gap-2"
+					aria-label="Назад к списку записей"
 				>
-					<ArrowLeft className="h-4 w-4" />
+					<ArrowLeft className="h-4 w-4" aria-hidden="true" />
 					Назад
 				</Button>
 				{isLocal && (
@@ -146,7 +144,7 @@ export default function RecordPage({ id }: RecordPageProps) {
 			</div>
 
 			{/* Основная информация */}
-			<div className="bg-background mb-6 space-y-2 rounded-xl border p-6 shadow-sm">
+			<div className="bg-background mb-6 space-y-3 rounded-xl border p-6 shadow-sm">
 				<div className="flex gap-2">
 					<StatusBadgeFactory
 						className="inline-flex"
@@ -163,18 +161,19 @@ export default function RecordPage({ id }: RecordPageProps) {
 								e.stopPropagation()
 								handleRetry(record)
 							}}
+							aria-label="Повторить обработку"
 						>
 							{retryRecord.isPending ? (
-								<Loader2 className="h-4 w-4 animate-spin" />
+								<Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
 							) : (
-								<RefreshCcw className="h-4 w-4" />
+								<RefreshCcw className="h-4 w-4" aria-hidden="true" />
 							)}
 						</Button>
 					)}
 				</div>
 
-				<div className="mb-4 flex items-start justify-between">
-					<div className="mt-2.5 flex-1">
+				<div className="mb-4 flex flex-wrap items-start justify-between gap-4">
+					<div className="mt-2.5 min-w-0 flex-1">
 						{record.title ? (
 							<h1 className="text-foreground mb-2 text-xl font-semibold">
 								{record.title}
@@ -186,7 +185,7 @@ export default function RecordPage({ id }: RecordPageProps) {
 							</h2>
 						)}
 						{record.summary ? (
-							<p className="text-foreground">
+							<p className="text-foreground leading-relaxed">
 								{typeof record.summary === "string"
 									? record.summary
 									: ""}
@@ -213,19 +212,20 @@ export default function RecordPage({ id }: RecordPageProps) {
 						)}
 					</div>
 					{!isLocal && (
-						<div className="flex gap-2">
-							<Button variant="ghost" size="icon">
-								<Edit2 className="h-4 w-4" />
-							</Button>
-							<Button
-								variant="ghost"
-								size="icon"
-								className="text-destructive hover:text-destructive/80"
-							>
-								<Trash2 className="h-4 w-4" />
-							</Button>
-						</div>
-					)}
+					<div className="flex gap-2">
+						<Button variant="ghost" size="icon" aria-label="Редактировать запись">
+							<Edit2 className="h-4 w-4" aria-hidden="true" />
+						</Button>
+						<Button
+							variant="ghost"
+							size="icon"
+							className="text-destructive hover:text-destructive/80"
+							aria-label="Удалить запись"
+						>
+							<Trash2 className="h-4 w-4" aria-hidden="true" />
+						</Button>
+					</div>
+				)}
 				</div>
 
 				{/* Теги */}
@@ -248,9 +248,9 @@ export default function RecordPage({ id }: RecordPageProps) {
 				)}
 
 				{/* Дата */}
-				<div className="text-muted-foreground flex items-center gap-2 text-sm">
-					<Clock className="h-4 w-4" />
-					<span>
+					<div className="text-muted-foreground flex items-center gap-2 text-sm">
+						<Clock className="h-4 w-4" aria-hidden="true" />
+						<span>
 						{formatDate(
 							new Date(record.date).getTime() ||
 								new Date().getTime(),
@@ -279,7 +279,6 @@ export default function RecordPage({ id }: RecordPageProps) {
 				<div className="space-y-3">
 					{isLocal &&
 						record.documents?.map((fileData, index) => {
-							console.log("Local ----", fileData)
 							return (
 								<FileCard
 									key={index}
@@ -293,7 +292,6 @@ export default function RecordPage({ id }: RecordPageProps) {
 						})}
 					{!isLocal &&
 						record.documents?.map((file, index: number) => {
-							console.log("True")
 							return (
 								<FileCard
 									key={index}
@@ -303,7 +301,6 @@ export default function RecordPage({ id }: RecordPageProps) {
 									)}
 									status={file.status}
 									onDownload={() => {
-										console.log("Download", file.fileName)
 										handleDownloadFile(file?.id || "")
 									}}
 								/>

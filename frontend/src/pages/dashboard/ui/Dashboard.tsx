@@ -54,54 +54,53 @@ export default function DashboardPage() {
 		) {
 			setIsWasData(false)
 		}
-	}, [groupedRecords])
-
-	console.log(isWasData, groupedRecords)
+	}, [groupedRecords, isLoading])
 
 	return (
 		<>
-			<div className="">
-				<div className="flex h-10 w-full items-center gap-3">
-					<div className="relative h-10 flex-1">
+			<div className="space-y-6">
+				<div className="flex flex-wrap items-center gap-3">
+					<div className="relative h-12 min-w-[260px] flex-1">
 						<SearchIcon
-							onClick={() => {
-								ref.current?.focus()
-							}}
-							className="text-primary absolute top-1/2 left-3 h-5 w-5 -translate-y-1/2 cursor-text"
+							className="text-primary absolute top-1/2 left-3 h-5 w-5 -translate-y-1/2 pointer-events-none"
+							aria-hidden="true"
 						/>
 						<span
-							onClick={() => {
-								ref.current?.focus()
-							}}
-							className="bg-primary-foreground absolute top-1/2 left-10 h-4 w-[1px] -translate-y-1/2 cursor-text rounded"
+							className="bg-primary-foreground absolute top-1/2 left-10 h-4 w-[1px] -translate-y-1/2 rounded pointer-events-none"
+							aria-hidden="true"
 						></span>
 						<Input
 							ref={ref}
 							type="text"
 							placeholder="Поиск..."
-							className="bg-primary text-primary-foreground placeholder:text-primary-foreground/70 selection:bg-primary-foreground selection:text-primary h-full w-full rounded-lg border-none pr-4 pl-12"
+							aria-label="Поиск"
+							className="bg-secondary-foreground text-primary-foreground placeholder:text-primary-foreground/60 selection:bg-primary selection:text-primary-foreground h-full w-full rounded-lg border-2 border-transparent pr-4 pl-12"
 						/>
 					</div>
-					<Button
-						variant="ghost"
-						size="icon"
-						className="bg-secondary-foreground hover:bg-primary/90 h-10 w-10 rounded-lg"
-					>
-						<SortIcon className="h-5 w-5" />
-					</Button>
-					<Button
-						variant="ghost"
-						size="icon"
-						className="bg-secondary-foreground hover:bg-primary/90 h-10 w-10 rounded-lg"
-					>
-						<FilterIcon className="h-5 w-5" />
-					</Button>
+					<div className="flex items-center gap-2">
+						<Button
+							variant="ghost"
+							size="icon"
+							className="bg-secondary-foreground hover:bg-primary/10 h-11 w-11 rounded-lg border border-transparent"
+							aria-label="Сортировка"
+						>
+							<SortIcon className="h-5 w-5" aria-hidden="true" />
+						</Button>
+						<Button
+							variant="ghost"
+							size="icon"
+							className="bg-secondary-foreground hover:bg-primary/10 h-11 w-11 rounded-lg border border-transparent"
+							aria-label="Фильтр"
+						>
+							<FilterIcon className="h-5 w-5" aria-hidden="true" />
+						</Button>
+					</div>
 				</div>
 
-				<div className="bg-secondary-foreground mt-6 flex min-h-[75vh] flex-col justify-start space-y-4 rounded-xl p-6">
+				<div className="bg-secondary-foreground flex min-h-[75vh] flex-col justify-start space-y-4 rounded-xl p-6 shadow-sm">
 					{!isWasData ? (
 						<div className="">
-							<FrownIcon className="text-primary-foreground mx-auto size-32" />
+							<FrownIcon className="text-primary-foreground mx-auto size-32" aria-hidden="true" />
 							<h2 className="text-primary-foreground mt-4 text-center text-2xl font-semibold">
 								У вас пока нет медицинских записей
 							</h2>
@@ -170,7 +169,7 @@ export default function DashboardPage() {
 						)
 					) : !isLoading ? (
 						<div className="">
-							<CircleQuestionMark className="text-primary-foreground mx-auto size-32" />
+							<CircleQuestionMark className="text-primary-foreground mx-auto size-32" aria-hidden="true" />
 							<h2 className="text-primary-foreground mt-4 text-center text-2xl font-semibold">
 								Нет результатов по вашему запросу
 							</h2>

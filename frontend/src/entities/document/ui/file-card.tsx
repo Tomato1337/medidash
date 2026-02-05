@@ -22,7 +22,7 @@ export function FileCard({
 		<div className="bg-background flex items-center justify-between rounded-lg border p-4 shadow-sm">
 			<div className="flex items-center gap-3">
 				<div className="bg-primary/10 flex h-12 w-12 items-center justify-center rounded-lg">
-					<File className="text-primary h-6 w-6" />
+					<File className="text-primary h-6 w-6" aria-hidden="true" />
 				</div>
 				<div>
 					<h3 className="text-foreground font-medium">{fileName}</h3>
@@ -43,8 +43,9 @@ export function FileCard({
 						size="icon"
 						onClick={onDownload}
 						className="hover:bg-primary/10"
+						aria-label={`Скачать файл ${fileName}`}
 					>
-						<Download className="h-4 w-4" />
+						<Download className="h-4 w-4" aria-hidden="true" />
 					</Button>
 				)}
 			</div>

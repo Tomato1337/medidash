@@ -34,11 +34,12 @@ const badgeVariants = cva(
 				status: DocumentStatus.FAILED,
 				class: "bg-destructive text-destructive-foreground hover:bg-destructive/80",
 			},
-			{
-				variant: "default",
-				status: DocumentStatus.PROCESSING,
-				class: "bg-primary text-primary-foreground animate-pulse",
-			},
+		{
+			variant: "default",
+			status: DocumentStatus.PROCESSING,
+			class:
+				"bg-primary text-primary-foreground animate-pulse motion-reduce:animate-none",
+		},
 			{
 				variant: "default",
 				status: DocumentStatus.UPLOADING,
@@ -54,11 +55,11 @@ const badgeVariants = cva(
 				status: DocumentStatus.PENDING,
 				class: "bg-orange-500 text-white hover:bg-orange-500/80",
 			},
-			{
-				variant: "default",
-				status: DocumentStatus.PARSING,
-				class: "bg-yellow-500 text-white animate-pulse",
-			},
+		{
+			variant: "default",
+			status: DocumentStatus.PARSING,
+			class: "bg-yellow-500 text-white animate-pulse motion-reduce:animate-none",
+		},
 		],
 		defaultVariants: {
 			variant: "default",

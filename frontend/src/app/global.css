@@ -41,7 +41,7 @@
 	--sidebar-accent-foreground: oklch(0.6093 0.1059 167.4343);
 	--sidebar-border: oklch(0.9067 0 0);
 	--sidebar-ring: oklch(0.6992 0.105 166.7012);
-	--font-sans: "Inter", sans-serif;
+	--font-sans: var(--font-montserrat);
 	--font-serif: Georgia, serif;
 	--font-mono: "Fira Code", monospace;
 	--radius: 1rem;
@@ -97,7 +97,7 @@
 	--sidebar-accent-foreground: oklch(0.6992 0.105 166.7012);
 	--sidebar-border: oklch(0.2931 0 0);
 	--sidebar-ring: oklch(0.6168 0.0915 184.6746);
-	--font-sans: "Inter", sans-serif;
+	--font-sans: var(--font-montserrat);
 	--font-serif: Georgia, serif;
 	--font-mono: "Fira Code", monospace;
 	--radius: 1rem;
@@ -179,7 +179,8 @@
 
 body {
 	letter-spacing: var(--tracking-normal);
-	font-family: var(--font-montserrat);
+	font-family: var(--font-sans);
+	line-height: 1.6;
 	box-sizing: border-box;
 }
 
@@ -191,7 +192,8 @@ body {
 		@apply bg-background text-foreground;
 		scrollbar-width: thin;
 		letter-spacing: var(--tracking-normal);
-		font-family: var(--font-montserrat);
+		font-family: var(--font-sans);
+		line-height: 1.6;
 		box-sizing: border-box;
 		scrollbar-color: oklch(from var(--primary) l c h / 0.3) transparent;
 	}

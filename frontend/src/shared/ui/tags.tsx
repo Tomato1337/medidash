@@ -122,24 +122,28 @@ export default function Tags({
 							{Array.from(pickedTags).map((tagId) => {
 								const tag = tags.find((t) => t.id === tagId)
 								if (!tag) return null
-								return (
-									<span
-										onClick={() => {
-											const newPickedTags = new Set(
-												pickedTags,
-											)
-											newPickedTags.delete(tag.id)
-											setPickedTags(newPickedTags)
-										}}
-										key={tag.id}
-										className="bg-primary text-primary-foreground hover:bg-primary/50 flex shrink-0 cursor-pointer items-center gap-1 rounded-full px-3 py-1 text-sm transition-colors duration-200"
-									>
-										<span className="whitespace-nowrap">
-											{tag.name}
-										</span>
-										<XCircle className="size-4 cursor-pointer" />
-									</span>
-								)
+										return (
+											<button
+												type="button"
+												onClick={() => {
+													const newPickedTags = new Set(
+														pickedTags,
+													)
+													newPickedTags.delete(tag.id)
+													setPickedTags(newPickedTags)
+											}}
+											key={tag.id}
+											className="bg-primary text-primary-foreground hover:bg-primary/50 flex shrink-0 cursor-pointer items-center gap-1 rounded-full px-3 py-1 text-sm transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-60"
+											disabled={disabled}
+											aria-label={`Удалить тег ${tag.name}`}
+											aria-disabled={disabled}
+										>
+											<span className="whitespace-nowrap">
+												{tag.name}
+											</span>
+											<XCircle className="size-4" aria-hidden="true" />
+										</button>
+										)
 							})}
 						</div>
 					</div>
@@ -170,10 +174,11 @@ export default function Tags({
 							/>
 						))
 					: filteredTags.map((tag) => (
-							<div
+							<button
+								type="button"
 								key={tag.id}
 								className={cn(
-									"bg-secondary hover:bg-primary/50 cursor-pointer rounded-lg p-4 text-black transition-colors duration-200 hover:text-white",
+									"bg-secondary hover:bg-primary/50 cursor-pointer rounded-lg p-4 text-black transition-colors duration-200 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-60",
 									{
 										"bg-primary text-white": pickedTags.has(
 											tag.id,
@@ -189,9 +194,12 @@ export default function Tags({
 									}
 									setPickedTags(newPickedTags)
 								}}
+								disabled={disabled}
+								aria-pressed={pickedTags.has(tag.id)}
+								aria-disabled={disabled}
 							>
 								{tag.name}
-							</div>
+							</button>
 						))}
 			</div>
 		</div>

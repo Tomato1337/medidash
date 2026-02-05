@@ -11,7 +11,7 @@ export function Markdown({ content, className }: MarkdownProps) {
 	return (
 		<div
 			className={cn(
-				"prose prose-sm dark:prose-invert max-w-none",
+				"prose prose-base dark:prose-invert max-w-none",
 				"prose-headings:text-foreground prose-headings:font-semibold",
 				"prose-p:text-foreground prose-p:leading-relaxed",
 				"prose-strong:text-foreground prose-strong:font-semibold",

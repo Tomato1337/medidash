@@ -39,10 +39,15 @@ export function MedicalRecordCard({
 	className,
 }: MedicalRecordCardProps) {
 	return (
-		<Link to="/dashboard/$id" params={{ id }}>
+		<Link
+			to="/dashboard/$id"
+			params={{ id }}
+			className="group block focus-visible:outline-none"
+			aria-label={`Открыть запись: ${title || "Новый документ"}`}
+		>
 			<Card
 				className={cn(
-					"bg-background border-primary relative cursor-pointer gap-2 overflow-hidden border-2 p-5 shadow-sm transition-transform hover:scale-[100.5%] hover:shadow-md",
+					"bg-background border-primary relative cursor-pointer gap-2 overflow-hidden border-2 p-5 shadow-sm transition-shadow hover:shadow-md group-focus-visible:ring-2 group-focus-visible:ring-ring/50 group-focus-visible:ring-offset-2 group-focus-visible:ring-offset-background",
 					className,
 				)}
 			>
@@ -60,12 +65,13 @@ export function MedicalRecordCard({
 									e.stopPropagation()
 									onRetry()
 								}}
+								aria-label="Повторить обработку"
 							>
-								{isRetrying ? (
-									<Loader2 className="h-4 w-4 animate-spin" />
-								) : (
-									<RefreshCw className="h-4 w-4" />
-								)}
+							{isRetrying ? (
+								<Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+							) : (
+								<RefreshCw className="h-4 w-4" aria-hidden="true" />
+							)}
 							</Button>
 						)}
 					</div>
@@ -121,11 +127,11 @@ export function MedicalRecordCard({
 
 				<div className="text-foreground flex items-center gap-4 text-xs">
 					<div className="flex items-center gap-1.5">
-						<File className="h-4 w-4" />
+						<File className="h-4 w-4" aria-hidden="true" />
 						<span>{filesCount} файлов</span>
 					</div>
 					<div className="flex items-center gap-1.5">
-						<Clock className="h-4 w-4" />
+						<Clock className="h-4 w-4" aria-hidden="true" />
 						<span>
 							{formatDate(new Date(date || new Date()).getTime())}
 						</span>

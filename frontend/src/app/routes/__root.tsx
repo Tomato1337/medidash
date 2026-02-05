@@ -3,7 +3,7 @@ import { Outlet, createRootRoute } from "@tanstack/react-router"
 import { queryClient } from "../main"
 import { ErrorBoundary } from "@/shared/ui/error-boundary"
 import { NotFound } from "@/shared/ui/not-found"
-import { useCompressionRecovery } from "@/entities/document/api/useCompressionRecovery"
+import { useCompressionRecovery } from "@/modules/documents"
 
 export const Route = createRootRoute({
 	component: RootComponent,

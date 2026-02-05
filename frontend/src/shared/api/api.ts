@@ -24,6 +24,11 @@ const authMiddleware: Middleware = {
 		const modifiedRequest = new Request(request, {
 			credentials: "include",
 		})
+		// Clone request to save body for potential retry in case of 401
+		const retryRequest = modifiedRequest.clone()
+		// @ts-ignore
+		modifiedRequest._retryRequest = retryRequest
+
 		return modifiedRequest
 	},
 	async onResponse({ response, request }) {
@@ -34,7 +39,9 @@ const authMiddleware: Middleware = {
 
 		// Обрабатываем только 401 ошибки
 		if (response.status === 401) {
-			const originalRequest = request.clone()
+			// Use saved clone if available, otherwise try to clone (will fail if body used)
+			// @ts-ignore
+			const originalRequest = request._retryRequest || request.clone()
 
 			// Если уже идет обновление токена, добавляем запрос в очередь
 			if (isRefreshing) {

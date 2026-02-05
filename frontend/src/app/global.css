@@ -178,6 +178,7 @@
 }
 
 body {
+	scroll-behavior: smooth;
 	letter-spacing: var(--tracking-normal);
 	font-family: var(--font-sans);
 	line-height: 1.6;

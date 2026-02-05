@@ -1,4 +1,4 @@
-import HeaderLayout from "@/widgets/headerLayout/headerLayout"
+import { HeaderLayout } from "@/modules/layout"
 import { createFileRoute, redirect } from "@tanstack/react-router"
 import { client } from "@/shared/api/api"
 

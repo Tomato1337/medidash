@@ -1,8 +1,11 @@
+import { getUser } from "@/modules/auth"
 import { client } from "@/shared/api/api"
+import { queryKeys } from "@/shared/api/queries"
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
 
 export const Route = createFileRoute("/_authenticated")({
 	component: RouteComponent,
+	scrollRestoration: true,
 	pendingComponent: () => (
 		<div className="flex min-h-screen items-center justify-center">
 			<div className="text-center">
@@ -12,16 +15,21 @@ export const Route = createFileRoute("/_authenticated")({
 		</div>
 	),
 	loader: async ({ context }) => {
-		const queryClient = context.queryClient
-		const { data, response, error } = await client.GET("/api/user")
+		try {
+			const queryClient = context.queryClient
+			const data = await getUser()
 
-		if (!response?.ok || error) {
+			// if (!response?.ok || error) {
+			// 	console.log("Auth check failed, redirecting to login")
+			// 	throw redirect({ to: "/auth/login", replace: true })
+			// }
+			queryClient.setQueryData(queryKeys.auth.user(), data)
+
+			return data
+		} catch (error) {
 			console.log("Auth check failed, redirecting to login")
 			throw redirect({ to: "/auth/login", replace: true })
 		}
-		queryClient.setQueryData(["user"], data)
-
-		return data
 	},
 })
 

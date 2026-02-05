@@ -14,7 +14,7 @@ import { env } from "@/shared/config/env"
 import { Toaster } from "@/shared/ui/sonner"
 import { customToast } from "@/shared/lib/utils"
 import { terminateCompressionWorker } from "@/shared/lib/compressionWorkerManager"
-import { registerServiceWorker } from "@/shared/sw/swRegistration"
+import { registerServiceWorker } from "@/modules/offline"
 
 registerServiceWorker()
 
@@ -83,6 +83,8 @@ export const router = createRouter({
 	context: {
 		queryClient: undefined!,
 	},
+	scrollRestoration: true,
+	scrollToTopSelectors: ["#main-scroll-container"],
 })
 
 declare module "@tanstack/react-router" {

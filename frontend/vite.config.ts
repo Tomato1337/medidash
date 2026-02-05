@@ -16,6 +16,15 @@ export default defineConfig({
 		},
 	},
 	plugins: [
+		{
+			name: "service-worker-allowed-header",
+			configureServer(server) {
+				server.middlewares.use((_req, res, next) => {
+					res.setHeader("Service-Worker-Allowed", "/")
+					next()
+				})
+			},
+		},
 		tanstackRouter({
 			target: "react",
 			autoCodeSplitting: true,
@@ -29,4 +38,22 @@ export default defineConfig({
 		}),
 		tailwindcss(),
 	],
+	build: {
+		rollupOptions: {
+			input: {
+				main: path.resolve(__dirname, "index.html"),
+				sw: path.resolve(
+					__dirname,
+					"src/modules/offline/infrastructure/sw.serviceWorker.ts",
+				),
+			},
+			output: {
+				entryFileNames: (assetInfo) => {
+					return assetInfo.name === "sw"
+						? "sw.js"
+						: "assets/[name]-[hash].js"
+				},
+			},
+		},
+	},
 })

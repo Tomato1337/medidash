@@ -5,7 +5,6 @@ import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
 
 export const Route = createFileRoute("/_authenticated")({
 	component: RouteComponent,
-	scrollRestoration: true,
 	pendingComponent: () => (
 		<div className="flex min-h-screen items-center justify-center">
 			<div className="text-center">

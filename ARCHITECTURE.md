@@ -7,9 +7,14 @@
 ## Компоненты системы
 
 ### Frontend
-- **Технологии**: React 19, TanStack Query, TanStack Router
-- **Архитектура**: Feature-Sliced Design (FSD)
-- **Коммуникация**: REST API + WebSocket для real-time обновлений
+- **Технологии**: React 19, TanStack Query, TanStack Router, Vite
+- **Архитектура**: FEOD (Feature-Enhanced Organizational Design)
+  - `app/` — инициализация, роутинг, провайдеры
+  - `pages/` — чистые UI-композиции страниц
+  - `modules/` — бизнес-логика (domain, application, infrastructure, ui)
+  - `shared/` — переиспользуемые компоненты, утилиты, API-клиент
+- **Offline**: Service Worker + IndexedDB для работы без сети
+- **Коммуникация**: REST API
 
 ### Backend Services
 
@@ -76,8 +81,8 @@ GET    /api/search/*        → Search Service
 - Суммаризация документов
 
 **AI Models**:
-- GPT-4: анонимизация, тегирование, суммаризация
-- text-embedding-ada-002: векторизация (1536 dimensions)
+- spaCy NER + ru_core_news_md - модель для анонимизации
+- Gemini: тегирование, суммаризация, векторизация
 
 #### 5. Search Service (Port: 3004)
 **Ответственность**: Поиск по документам
@@ -139,17 +144,17 @@ AI Service:
   1. Анонимизация каждого чанка
   2. Векторизация (создание embeddings)
   3. Автоматическое тегирование
-  4. Извлечение даты
+  4. Суммаризация с помощью Gemini
   5. Генерация названия
   ↓
 Processing Service:
   1. Сохранение DocumentChunks с embeddings
   2. Сохранение PII mappings
   3. Обновление Document (status: COMPLETED)
-  4. Уведомление пользователя через WebSocket
+  4. Уведомление пользователя через SSE
 ```
 
-### 2. Поиск документов
+### TODO: 2. Поиск документов
 
 ```
 User → Frontend (поисковый запрос)
@@ -172,28 +177,6 @@ Search Service:
 Frontend → Отображение результатов
 ```
 
-### 3. Суммаризация Record
-
-```
-User → Frontend (кнопка "Анализ")
-  ↓
-Frontend → API Gateway (POST /api/processing/summarize/:recordId)
-  ↓
-API Gateway → Processing Service
-  ↓
-Processing Service:
-  1. Получение всех документов Record
-  2. Создание задачи суммаризации
-  ↓
-AI Service:
-  1. Объединение всех анонимизированных текстов
-  2. Суммаризация через GPT-4
-  3. Выделение ключевых моментов
-  ↓
-Processing Service:
-  1. Сохранение summary в Record
-  2. Уведомление пользователя
-```
 
 ## Безопасность
 
@@ -257,9 +240,6 @@ Processing Service:
 ### Development
 ```bash
 docker-compose up -d
-cd services/api-gateway && pnpm start:dev
-cd services/document-service && pnpm start:dev
-# ... остальные сервисы
 ```
 
 ### Production

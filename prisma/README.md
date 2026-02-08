@@ -188,52 +188,8 @@ npx prisma studio
 
 Откроется на `http://localhost:5555`
 
-## pgvector
-
-### Создание индекса для векторного поиска
-
-После применения миграций, выполните SQL:
-
-```sql
--- IVFFlat индекс для быстрого поиска похожих векторов
-CREATE INDEX IF NOT EXISTS document_chunk_embedding_idx 
-ON "DocumentChunk" 
-USING ivfflat (embedding vector_cosine_ops)
-WITH (lists = 100);
-```
-
-### Поиск похожих документов
-
-```sql
--- Поиск 10 наиболее похожих чанков
-SELECT id, content, embedding <=> '[0.1, 0.2, ...]'::vector AS distance
-FROM "DocumentChunk"
-WHERE "userId" = 'user_id_here'
-ORDER BY embedding <=> '[0.1, 0.2, ...]'::vector
-LIMIT 10;
-```
-
 ## Переменные окружения
 
 ```env
 DATABASE_URL="postgresql://user:password@localhost:5432/medical_docs?schema=public"
 ```
-
-## Best Practices
-
-1. **Всегда используйте транзакции** для связанных операций
-2. **Используйте select** для выбора только нужных полей
-3. **Используйте include/select с осторожностью** - избегайте N+1 запросов
-4. **Индексируйте часто используемые поля** для фильтрации и сортировки
-5. **Регулярно анализируйте медленные запросы** через Prisma Studio или логи PostgreSQL
-
-## Миграция данных
-
-Для миграции данных из существующей схемы (`backend/prisma/schema.prisma`):
-
-1. Экспортируйте данные User и RefreshToken
-2. Примените миграции новой схемы
-3. Импортируйте данные пользователей
-4. Создайте новые Records и Documents
-
-См. скрипт миграции в `scripts/migrate-data.ts` (создать при необходимости).

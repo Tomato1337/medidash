@@ -1,6 +1,7 @@
 import {
 	All,
 	Controller,
+	Logger,
 	Req,
 	UseGuards,
 	HttpException,
@@ -17,6 +18,8 @@ import { HttpClientService } from "../common/http-client.service"
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class DocumentProxyController {
+	private readonly logger = new Logger(DocumentProxyController.name)
+
 	constructor(private readonly httpClient: HttpClientService) {}
 
 	@Public()
@@ -36,8 +39,9 @@ export class DocumentProxyController {
 		const url = req.url
 
 		const headers: Record<string, string> = {}
-		if (req.headers["x-user-id"]) {
-			headers["x-user-id"] = req.headers["x-user-id"] as string
+		const user = (req as any).user
+		if (user && user.id) {
+			headers["x-user-id"] = user.id
 		}
 
 		const contentType = req.headers["content-type"]
@@ -48,27 +52,15 @@ export class DocumentProxyController {
 				return await this.httpClient.get("document", url, headers)
 			case "POST":
 				if (isMultipart) {
-					console.log(
-						"[DocumentProxy] Processing multipart request",
-						{
-							contentType,
-							url,
-						},
+					this.logger.debug(
+						`Processing multipart request: ${url} (${contentType})`,
 					)
-
-					// Для multipart запросов просто проксируем raw body
-					// Не используем req.file(), чтобы не парсить multipart дважды
 
 					// Копируем заголовки включая Content-Type с оригинальным boundary
 					const proxyHeaders = {
 						...headers,
 						"content-type": contentType!, // Сохраняем оригинальный Content-Type с boundary
 					}
-
-					console.log(
-						"[DocumentProxy] Proxying raw multipart with headers:",
-						proxyHeaders,
-					)
 
 					// Проксируем raw request body без парсинга
 					return await this.httpClient.postRaw(

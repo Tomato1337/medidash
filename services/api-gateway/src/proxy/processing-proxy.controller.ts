@@ -31,18 +31,39 @@ export class ProcessingProxyController {
 		@Req() req: FastifyRequest,
 	): Promise<unknown> {
 		const url = req.url
+		const user = (req as any).user
+		const headers: Record<string, string> = {}
+
+		if (user && user.id) {
+			headers["x-user-id"] = user.id
+		}
 
 		switch (req.method) {
 			case "GET":
-				return await this.httpClient.get("processing", url)
+				return await this.httpClient.get("processing", url, headers)
 			case "POST":
-				return await this.httpClient.post("processing", url, req.body)
+				return await this.httpClient.post(
+					"processing",
+					url,
+					req.body,
+					headers,
+				)
 			case "PUT":
-				return await this.httpClient.put("processing", url, req.body)
+				return await this.httpClient.put(
+					"processing",
+					url,
+					req.body,
+					headers,
+				)
 			case "PATCH":
-				return await this.httpClient.patch("processing", url, req.body)
+				return await this.httpClient.patch(
+					"processing",
+					url,
+					req.body,
+					headers,
+				)
 			case "DELETE":
-				return await this.httpClient.delete("processing", url)
+				return await this.httpClient.delete("processing", url, headers)
 			default:
 				throw new HttpException(
 					"Method not allowed",

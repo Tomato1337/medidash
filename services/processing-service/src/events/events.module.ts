@@ -5,7 +5,12 @@ import { QUEUES } from "../queue/queue.constants"
 
 @Global()
 @Module({
-	imports: [BullModule.registerQueue({ name: QUEUES.PARSING })],
+	imports: [
+		BullModule.registerQueue(
+			{ name: QUEUES.PARSING },
+			{ name: QUEUES.AI_PROCESSING },
+		),
+	],
 	providers: [EventsService],
 	exports: [EventsService],
 })

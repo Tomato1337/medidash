@@ -20,10 +20,10 @@ export type DocumentStatusValues =
 // 	PROCESSING: "processing",
 // } as const
 export const FailedPhase = {
-    PARSING: DocumentStatus.PARSING,
-    PROCESSING: DocumentStatus.PROCESSING,
-    COMPRESSING: DocumentStatus.COMPRESSING,
-    UPLOADING: DocumentStatus.UPLOADING,
+	PARSING: DocumentStatus.PARSING,
+	PROCESSING: DocumentStatus.PROCESSING,
+	COMPRESSING: DocumentStatus.COMPRESSING,
+	UPLOADING: DocumentStatus.UPLOADING,
 } as const
 
 export type FailedPhaseValues = (typeof FailedPhase)[keyof typeof FailedPhase]
@@ -46,6 +46,12 @@ export interface ParsingJobData {
 	documentId: string
 	recordId: string
 	userId: string
+	// Document metadata — passed in job to avoid cross-service DB reads
+	minioObjectKey: string
+	mimeType: string
+	originalFileName: string
+	// All document IDs for this record — used to check if all are parsed
+	allDocumentIds: string[]
 }
 
 /** Job data для AI обработки всего Record */
@@ -190,4 +196,16 @@ export const RedisChannels = {
 	RECORD_READY_FOR_PARSING: "record.ready-for-parsing",
 	/** Processing Service → API Gateway: события обработки для SSE */
 	PROCESSING_EVENTS: "processing:events",
+	/** Processing Service → Document Service: обновление статуса документа */
+	DOCUMENT_STATUS_UPDATE: "document.status.update",
+	/** Processing Service → Document Service: обновление метаданных документа после парсинга */
+	DOCUMENT_PARSED: "document.parsed",
+	/** Processing Service → Document Service: обновление Record после AI обработки */
+	RECORD_AI_COMPLETED: "record.ai.completed",
+	/** Processing Service → Document Service: запрос на повторный парсинг */
+	REQUEST_RETRY_PARSING: "request.retry.parsing",
+	/** Processing Service → Document Service: запрос на повторную AI обработку */
+	REQUEST_RETRY_AI: "request.retry.ai",
+	/** Document Service → Processing Service: документы готовы к AI обработке (после повторного запуска или пропуска парсинга) */
+	RECORD_READY_FOR_AI: "record.ready-for-ai",
 } as const

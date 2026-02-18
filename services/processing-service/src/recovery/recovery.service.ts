@@ -1,8 +1,6 @@
 import { Injectable, Logger, HttpException, HttpStatus } from "@nestjs/common"
 import { InjectQueue } from "@nestjs/bullmq"
 import { Queue } from "bullmq"
-import { DocumentStatus } from "generated/prisma"
-import { PrismaService } from "../prisma/prisma.service"
 import { EventsService } from "../events/events.service"
 import { QUEUES, JOBS } from "../queue/queue.constants"
 import {
@@ -10,7 +8,12 @@ import {
 	AiProcessingJobData,
 	FailedPhaseValues,
 	FailedPhase,
+	RedisChannels,
+	DocumentStatus,
+	DocumentStatusValues,
 } from "@shared-types"
+import axios from "axios"
+import { EnvService } from "../env/env.service"
 import {
 	RecoveryResponseDto,
 	ProcessingStatusResponseDto,
@@ -23,7 +26,7 @@ interface RecordWithDocuments {
 	userId: string
 	documents: {
 		id: string
-		status: DocumentStatus
+		status: DocumentStatusValues
 		failedPhase: string | null
 	}[]
 }
@@ -32,12 +35,16 @@ interface RecordWithDocuments {
 export class RecoveryService {
 	private readonly logger = new Logger(RecoveryService.name)
 
+	private readonly documentServiceUrl: string
+
 	constructor(
-		private prismaService: PrismaService,
 		private eventsService: EventsService,
+		private configService: EnvService,
 		@InjectQueue(QUEUES.PARSING) private parsingQueue: Queue,
 		@InjectQueue(QUEUES.AI_PROCESSING) private aiProcessingQueue: Queue,
-	) {}
+	) {
+		this.documentServiceUrl = this.configService.get("DOCUMENT_SERVICE_URL")
+	}
 
 	/**
 	 * Перезапускает обработку документов для указанной фазы
@@ -47,248 +54,133 @@ export class RecoveryService {
 	async retryProcessing(
 		recordId: string,
 		phase: FailedPhaseValues,
+		userId: string,
 	): Promise<RecoveryResponseDto> {
 		this.logger.log(
-			`🔄 Recovery request for record ${recordId}, phase: ${phase}`,
+			`🔄 Recovery request for record ${recordId}, phase: ${phase}, user: ${userId}`,
 		)
-
-		const record = await this.getRecordWithDocuments(recordId)
 
 		if (phase === FailedPhase.PARSING) {
-			return this.retryParsing(record)
+			return this.retryParsing(recordId, userId)
 		} else {
-			return this.retryAiProcessing(record)
+			return this.retryAiProcessing(recordId, userId)
 		}
 	}
 
 	/**
-	 * Получает Record с документами
-	 */
-	private async getRecordWithDocuments(
-		recordId: string,
-	): Promise<RecordWithDocuments> {
-		const record = await this.prismaService.record.findUnique({
-			where: { id: recordId },
-			include: {
-				documents: {
-					where: { deletedAt: null },
-					select: {
-						id: true,
-						status: true,
-						failedPhase: true,
-					},
-				},
-			},
-		})
-
-		if (!record) {
-			throw new HttpException(
-				`Record ${recordId} not found`,
-				HttpStatus.NOT_FOUND,
-			)
-		}
-
-		return record
-	}
-
-	/**
-	 * Перезапуск парсинга для документов со статусом FAILED и failedPhase="parsing"
+	 * Запрос на повторный парсинг через событие
 	 */
 	private async retryParsing(
-		record: RecordWithDocuments,
+		recordId: string,
+		userId: string,
 	): Promise<RecoveryResponseDto> {
-		const failedDocuments = record.documents.filter(
-			(d) =>
-				d.status === DocumentStatus.FAILED &&
-				d.failedPhase === FailedPhase.PARSING,
+		// Публикуем запрос на повторный парсинг
+		await this.eventsService.publishToChannel(
+			RedisChannels.REQUEST_RETRY_PARSING,
+			{
+				recordId,
+				userId,
+				timestamp: new Date().toISOString(),
+			},
 		)
 
-		if (failedDocuments.length === 0) {
-			throw new HttpException(
-				`No documents with failed parsing found for record ${record.id}`,
-				HttpStatus.BAD_REQUEST,
-			)
-		}
-
-		// Сбрасываем статус на PARSING
-		await this.prismaService.document.updateMany({
-			where: { id: { in: failedDocuments.map((d) => d.id) } },
-			data: {
-				status: DocumentStatus.PARSING,
-				failedPhase: null,
-			},
-		})
-
-		// Добавляем задачи парсинга
-		const jobs = failedDocuments.map((doc) => ({
-			name: JOBS.PARSE_DOCUMENT,
-			data: {
-				documentId: doc.id,
-				recordId: record.id,
-				userId: record.userId,
-			} satisfies ParsingJobData,
-			opts: {
-				attempts: 3,
-				backoff: {
-					type: "exponential" as const,
-					delay: 1000,
-				},
-			},
-		}))
-
-		await this.parsingQueue.addBulk(jobs)
-
-		// Публикуем событие о начале восстановления
-		await this.eventsService.publishEvent({
-			type: "parsing:started",
-			recordId: record.id,
-			userId: record.userId,
-			documentId: failedDocuments[0].id,
-			timestamp: new Date().toISOString(),
-			data: {
-				isRecovery: true,
-				totalDocuments: failedDocuments.length,
-			},
-		})
-
 		this.logger.log(
-			`✅ Recovery: Added ${failedDocuments.length} parsing jobs for record ${record.id}`,
+			`Request for parsing retry published for record ${recordId}`,
 		)
 
 		return {
 			success: true,
-			recordId: record.id,
+			recordId,
 			phase: FailedPhase.PARSING,
-			documentsCount: failedDocuments.length,
-			message: `Started parsing recovery for ${failedDocuments.length} documents`,
+			documentsCount: 0, // Неизвестно на этом этапе
+			message: `Started parsing recovery request for record ${recordId}`,
 		}
 	}
 
 	/**
-	 * Перезапуск AI обработки для документов со статусом FAILED и failedPhase="processing"
+	 * Запрос на повторную AI обработку через событие
 	 */
 	private async retryAiProcessing(
-		record: RecordWithDocuments,
+		recordId: string,
+		userId: string,
 	): Promise<RecoveryResponseDto> {
-		const failedDocuments = record.documents.filter(
-			(d) =>
-				d.status === DocumentStatus.FAILED &&
-				d.failedPhase === FailedPhase.PROCESSING,
-		)
-
-		if (failedDocuments.length === 0) {
-			throw new HttpException(
-				`No documents with failed AI processing found for record ${record.id}`,
-				HttpStatus.BAD_REQUEST,
-			)
-		}
-
-		// Также добавляем документы со статусом PROCESSING (они были спарсены, но AI упал)
-		const processingDocuments = record.documents.filter(
-			(d) => d.status === DocumentStatus.PROCESSING,
-		)
-
-		const documentsForProcessing = [
-			...failedDocuments,
-			...processingDocuments,
-		]
-
-		// Сбрасываем статус на PROCESSING
-		await this.prismaService.document.updateMany({
-			where: { id: { in: documentsForProcessing.map((d) => d.id) } },
-			data: {
-				status: DocumentStatus.PROCESSING,
-				failedPhase: null,
-			},
-		})
-
-		// Добавляем задачу AI обработки
-		await this.aiProcessingQueue.add(
-			JOBS.PROCESS_RECORD,
+		// Публикуем запрос на повторную AI обработку
+		await this.eventsService.publishToChannel(
+			RedisChannels.REQUEST_RETRY_AI,
 			{
-				recordId: record.id,
-				userId: record.userId,
-				documentIds: documentsForProcessing.map((d) => d.id),
-			} satisfies AiProcessingJobData,
-			{
-				attempts: 3,
-				backoff: {
-					type: "exponential",
-					delay: 2000,
-				},
+				recordId,
+				userId,
+				timestamp: new Date().toISOString(),
 			},
 		)
-
-		// Публикуем событие о начале восстановления
-		await this.eventsService.publishEvent({
-			type: "processing:started",
-			recordId: record.id,
-			userId: record.userId,
-			documentId: documentsForProcessing[0].id,
-			timestamp: new Date().toISOString(),
-			data: {
-				isRecovery: true,
-				totalDocuments: documentsForProcessing.length,
-			},
-		})
 
 		this.logger.log(
-			`✅ Recovery: Added AI processing job for record ${record.id} with ${documentsForProcessing.length} documents`,
+			`Request for AI processing retry published for record ${recordId}`,
 		)
 
 		return {
 			success: true,
-			recordId: record.id,
+			recordId,
 			phase: FailedPhase.PROCESSING,
-			documentsCount: documentsForProcessing.length,
-			message: `Started AI processing recovery for ${documentsForProcessing.length} documents`,
+			documentsCount: 0, // Неизвестно на этом этапе
+			message: `Started AI processing recovery request for record ${recordId}`,
 		}
 	}
 
 	/**
-	 * Получает статус обработки Record
+	 * Получает статус обработки Record из document-service + локальные очереди
 	 */
 	async getProcessingStatus(
 		recordId: string,
+		userId: string,
 	): Promise<ProcessingStatusResponseDto> {
-		const record = await this.prismaService.record.findUnique({
-			where: { id: recordId },
-			include: {
-				documents: {
-					where: { deletedAt: null },
-					select: {
-						id: true,
-						status: true,
-						failedPhase: true,
-					},
+		try {
+			// 1. Получаем документы из document-service
+			const response = await axios.get(
+				`${this.documentServiceUrl}/documents/record/${recordId}`,
+				{
+					headers: { "x-user-id": userId },
 				},
-			},
-		})
-
-		if (!record) {
-			throw new HttpException(
-				`Record ${recordId} not found`,
-				HttpStatus.NOT_FOUND,
 			)
-		}
 
-		// Получаем статистику очередей
-		const [parsingStats, aiStats] = await Promise.all([
-			this.getQueueStats(this.parsingQueue),
-			this.getQueueStats(this.aiProcessingQueue),
-		])
+			const documents = response.data as {
+				id: string
+				status: DocumentStatusValues
+				failedPhase: string | null
+			}[]
 
-		// Определяем общий статус Record
-		const overallStatus = this.determineOverallStatus(
-			record.documents.map((d) => d.status),
-		)
+			// 2. Получаем статистику очередей
+			const [parsingStats, aiStats] = await Promise.all([
+				this.getQueueStats(this.parsingQueue),
+				this.getQueueStats(this.aiProcessingQueue),
+			])
 
-		return {
-			recordId,
-			status: overallStatus,
-			documents: record.documents,
-			parsingQueueStats: parsingStats,
-			aiQueueStats: aiStats,
+			// 3. Определяем общий статус Record
+			const overallStatus = this.determineOverallStatus(
+				documents.map((d) => d.status),
+			)
+
+			return {
+				recordId,
+				status: overallStatus,
+				documents: documents as any, // Cast to avoid strict type checks on DTO
+				parsingQueueStats: parsingStats,
+				aiQueueStats: aiStats,
+			}
+		} catch (error) {
+			if (axios.isAxiosError(error) && error.response?.status === 404) {
+				throw new HttpException(
+					"Record not found",
+					HttpStatus.NOT_FOUND,
+				)
+			}
+			this.logger.error(
+				`Failed to get processing status: ${error.message}`,
+			)
+			throw new HttpException(
+				"Failed to get processing status",
+				HttpStatus.INTERNAL_SERVER_ERROR,
+			)
 		}
 	}
 
@@ -310,7 +202,7 @@ export class RecoveryService {
 	/**
 	 * Определяет общий статус записи по статусам документов
 	 */
-	private determineOverallStatus(statuses: DocumentStatus[]): string {
+	private determineOverallStatus(statuses: DocumentStatusValues[]): string {
 		if (statuses.every((s) => s === DocumentStatus.COMPLETED)) {
 			return "COMPLETED"
 		} else if (statuses.some((s) => s === DocumentStatus.FAILED)) {
@@ -366,11 +258,15 @@ export class RecoveryService {
 	 * Проверяет подключение к базе данных
 	 */
 	private async checkDatabaseConnection(): Promise<string> {
+		// Processing Service больше не использует собственную БД напрямую здесь
+		// Можно проверить подключение к Document Service через HTTP
 		try {
-			await this.prismaService.$queryRaw`SELECT 1`
-			return "connected"
+			await axios.get(`${this.documentServiceUrl}/api/health`, {
+				timeout: 2000,
+			})
+			return "connected (via http)"
 		} catch {
-			return "disconnected"
+			return "disconnected (document-service)"
 		}
 	}
 

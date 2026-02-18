@@ -18,14 +18,11 @@ import { EnvModule } from "./env/env.module"
 			isGlobal: true,
 			load: [configuration],
 		}),
-		// Core modules
 		PrismaModule,
 		HealthModule,
-		// Infrastructure
 		QueueModule,
 		MinioModule,
 		EventsModule,
-		// Processing modules
 		ParsingModule,
 		AiProcessingModule,
 		// API

@@ -34,7 +34,10 @@ export const envSchema = z.object({
 	CHUNK_OVERLAP: z.coerce.number().default(100), // токенов
 
 	// AI Service
+	// AI Service
 	AI_SERVICE_URL: z.string().url().default("http://localhost:3003"),
+	// Document Service
+	DOCUMENT_SERVICE_URL: z.string().url().default("http://localhost:3001"),
 })
 
 export type Env = z.infer<typeof envSchema>

@@ -24,6 +24,8 @@ import {
 	HealthCheckResponseDto,
 	QueuesStatusResponseDto,
 } from "./dto/recovery.dto"
+import { CurrentUser } from "../common/decorators/current-user.decorator"
+import type { AuthenticatedUser } from "@shared-types"
 
 @ApiTags("Processing")
 @Controller("processing")
@@ -79,7 +81,11 @@ export class RecoveryController {
 	async retryProcessing(
 		@Param("recordId") recordId: string,
 		@Param("phase") phase: string,
+		@CurrentUser() user: AuthenticatedUser,
 	): Promise<RecoveryResponseDto> {
+		if (!user) {
+			throw new HttpException("User not found", HttpStatus.UNAUTHORIZED)
+		}
 		// Валидация фазы
 		if (phase !== FailedPhase.PARSING && phase !== FailedPhase.PROCESSING) {
 			throw new HttpException(
@@ -91,6 +97,7 @@ export class RecoveryController {
 		return this.recoveryService.retryProcessing(
 			recordId,
 			phase as FailedPhaseValues,
+			user.id,
 		)
 	}
 
@@ -125,8 +132,12 @@ export class RecoveryController {
 	})
 	async getProcessingStatus(
 		@Param("recordId") recordId: string,
+		@CurrentUser() user: AuthenticatedUser,
 	): Promise<ProcessingStatusResponseDto> {
-		return this.recoveryService.getProcessingStatus(recordId)
+		if (!user) {
+			throw new HttpException("User not found", HttpStatus.UNAUTHORIZED)
+		}
+		return this.recoveryService.getProcessingStatus(recordId, user.id)
 	}
 
 	/**

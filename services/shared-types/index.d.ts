@@ -1,5 +1,7 @@
 export declare const DocumentStatus: {
     readonly UPLOADING: "UPLOADING";
+    readonly COMPRESSING: "COMPRESSING";
+    readonly PENDING: "PENDING";
     readonly PARSING: "PARSING";
     readonly PROCESSING: "PROCESSING";
     readonly COMPLETED: "COMPLETED";
@@ -7,8 +9,10 @@ export declare const DocumentStatus: {
 };
 export type DocumentStatusValues = (typeof DocumentStatus)[keyof typeof DocumentStatus];
 export declare const FailedPhase: {
-    readonly PARSING: "parsing";
-    readonly PROCESSING: "processing";
+    readonly PARSING: "PARSING";
+    readonly PROCESSING: "PROCESSING";
+    readonly COMPRESSING: "COMPRESSING";
+    readonly UPLOADING: "UPLOADING";
 };
 export type FailedPhaseValues = (typeof FailedPhase)[keyof typeof FailedPhase];
 export type FailedPhase = FailedPhaseValues;
@@ -19,6 +23,10 @@ export interface ParsingJobData {
     documentId: string;
     recordId: string;
     userId: string;
+    minioObjectKey: string;
+    mimeType: string;
+    originalFileName: string;
+    allDocumentIds: string[];
 }
 export interface AiProcessingJobData {
     recordId: string;
@@ -109,4 +117,10 @@ export interface ProcessingEvent {
 export declare const RedisChannels: {
     readonly RECORD_READY_FOR_PARSING: "record.ready-for-parsing";
     readonly PROCESSING_EVENTS: "processing:events";
+    readonly DOCUMENT_STATUS_UPDATE: "document.status.update";
+    readonly DOCUMENT_PARSED: "document.parsed";
+    readonly RECORD_AI_COMPLETED: "record.ai.completed";
+    readonly REQUEST_RETRY_PARSING: "request.retry.parsing";
+    readonly REQUEST_RETRY_AI: "request.retry.ai";
+    readonly RECORD_READY_FOR_AI: "record.ready-for-ai";
 };

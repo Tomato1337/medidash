@@ -1,7 +1,3 @@
-/*
-https://docs.nestjs.com/providers#services
-*/
-
 import { Injectable, Logger, UnauthorizedException } from "@nestjs/common"
 import { AuthRegisterDto } from "./dto/auth.dto"
 import { UserService } from "src/user/user.service"
@@ -20,16 +16,16 @@ export class AuthService {
 	constructor(
 		private userService: UserService,
 		private jwtService: JwtService,
-		private configService: EnvService,
+		private envService: EnvService,
 		private prisma: PrismaService,
 	) {}
 
 	async login(user: User, reply: FastifyReply) {
 		try {
 			const expiresIn: string =
-				this.configService.get("JWT_EXPIRES_IN") || "15m"
+				this.envService.get("JWT_EXPIRES_IN") || "15m"
 			const refreshExpiresIn: string =
-				this.configService.get("JWT_REFRESH_EXPIRES_IN") || "7d"
+				this.envService.get("JWT_REFRESH_EXPIRES_IN") || "7d"
 
 			const expirationMs = this.parseExpirationTime(expiresIn)
 			const refreshExpirationMs =
@@ -45,12 +41,12 @@ export class AuthService {
 			}
 
 			const accessToken = this.jwtService.sign(tokenPayload, {
-				secret: this.configService.get("JWT_SECRET"),
+				secret: this.envService.get("JWT_SECRET"),
 				expiresIn: expirationMs,
 			})
 
 			const refreshToken = this.jwtService.sign(tokenPayload, {
-				secret: this.configService.get("JWT_REFRESH_SECRET"),
+				secret: this.envService.get("JWT_REFRESH_SECRET"),
 				expiresIn: refreshExpirationMs,
 			})
 
@@ -71,7 +67,7 @@ export class AuthService {
 				},
 			})
 
-			const isProduction = this.configService.get("NODE_ENV") === "prod"
+			const isProduction = this.envService.get("NODE_ENV") === "prod"
 
 			reply.setCookie("Authentication", accessToken, {
 				httpOnly: true,

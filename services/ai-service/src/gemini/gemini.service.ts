@@ -38,9 +38,10 @@ export class GeminiService implements OnModuleInit {
 		const apiKey = this.envService.get("GEMINI_API_KEY")
 		this.genAI = new GoogleGenerativeAI(apiKey)
 
-		// Модель для эмбеддингов: text-embedding-004 (768 dimensions)
+		// Модель для эмбеддингов: gemini-embedding-001
+		// По умолчанию 768 измерений для gemini-embedding-001 (или настраивается через outputDimensionality)
 		this.embeddingModel = this.genAI.getGenerativeModel({
-			model: "text-embedding-004",
+			model: "gemini-embedding-001",
 		})
 
 		// Модель для генерации текста (саммари): gemini-2.5-flash
@@ -53,7 +54,7 @@ export class GeminiService implements OnModuleInit {
 
 		this.logger.log("✅ Gemini AI initialized")
 		this.logger.log(
-			`   Embedding model: text-embedding-004 (768 dimensions)`,
+			`   Embedding model: gemini-embedding-001 (configured for 768 dimensions)`,
 		)
 		this.logger.log(`   Chat model: gemini-2.5-flash`)
 		this.logger.log(`   Rate limit delay: ${this.rateLimitDelay}ms`)
@@ -176,7 +177,7 @@ export class GeminiService implements OnModuleInit {
 
 	/**
 	 * Генерирует эмбеддинг для текста
-	 * Использует text-embedding-004 (768 dimensions)
+	 * Использует gemini-embedding-001 с outputDimensionality: 768
 	 *
 	 * ВАЖНО: Текст должен быть уже анонимизирован!
 	 */
@@ -185,7 +186,10 @@ export class GeminiService implements OnModuleInit {
 
 		return this.withRetry(
 			async () => {
-				const result = await this.embeddingModel.embedContent(text)
+				const result = await this.embeddingModel.embedContent({
+					content: { role: "user", parts: [{ text }] },
+					outputDimensionality: 768,
+				} as any)
 				const embedding = result.embedding.values
 
 				this.logger.debug(

@@ -1,0 +1,92 @@
+// processing-service Prisma Schema
+// Owns: DocumentChunk, PiiMapping, ProcessingLog
+// Schema: processing
+
+generator client {
+    provider        = "prisma-client"
+    engineType      = "client"
+    output          = "../generated/prisma/client"
+    previewFeatures = ["postgresqlExtensions"]
+    moduleFormat = "cjs"
+}
+
+datasource db {
+    provider   = "postgresql"
+    extensions = [vector]
+    schemas    = ["processing"]
+}
+
+enum PiiType {
+    NAME
+    ADDRESS
+    PHONE
+    EMAIL
+    DATE
+    ID
+    OTHER
+
+    @@schema("processing")
+}
+
+// DocumentChunk - часть документа с векторным представлением
+model DocumentChunk {
+    id         String                      @id @default(cuid())
+    documentId String
+    userId     String
+    recordId   String
+    content    String                      @db.Text
+    order      Int
+    embedding  Unsupported("vector(768)")?
+    createdAt  DateTime                    @default(now())
+    updatedAt  DateTime                    @updatedAt
+
+    piiMappings    PiiMapping[]
+    processingLogs ProcessingLog[]
+
+    @@index([documentId])
+    @@index([userId])
+    @@index([recordId])
+    @@index([order])
+    @@map("document_chunks")
+    @@schema("processing")
+}
+
+// PiiMapping - маппинг персональных данных
+model PiiMapping {
+    id           String   @id @default(cuid())
+    documentId   String
+    chunkId      String
+    userId       String
+    original     String
+    replacement  String
+    type         PiiType
+    encryptionIv String?
+    createdAt    DateTime @default(now())
+
+    chunk DocumentChunk @relation(fields: [chunkId], references: [id], onDelete: Cascade)
+
+    @@index([documentId])
+    @@index([chunkId])
+    @@index([userId])
+    @@map("pii_mappings")
+    @@schema("processing")
+}
+
+// ProcessingLog - логи обработки документов
+model ProcessingLog {
+    id         String   @id @default(cuid())
+    documentId String
+    chunkId    String?
+    step       String
+    status     String
+    message    String?  @db.Text
+    metadata   Json?
+    createdAt  DateTime @default(now())
+
+    chunk DocumentChunk? @relation(fields: [chunkId], references: [id], onDelete: SetNull)
+
+    @@index([documentId])
+    @@index([createdAt])
+    @@map("processing_logs")
+    @@schema("processing")
+}

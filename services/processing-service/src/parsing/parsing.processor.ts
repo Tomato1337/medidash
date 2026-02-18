@@ -1,14 +1,12 @@
 import { Processor, WorkerHost, OnWorkerEvent } from "@nestjs/bullmq"
 import { Logger } from "@nestjs/common"
 import { Job } from "bullmq"
-import { DocumentStatus } from "generated/prisma"
-import { ParsingJobData, AiProcessingJobData } from "@shared-types"
+import { ParsingJobData, AiProcessingJobData, FailedPhase } from "@shared-types"
 import { InjectQueue } from "@nestjs/bullmq"
 import { Queue } from "bullmq"
 import { ParsingService } from "./parsing.service"
 import { EventsService } from "../events/events.service"
 import { QUEUES, JOBS } from "../queue/queue.constants"
-import { FailedPhase } from "@shared-types"
 
 @Processor(QUEUES.PARSING, {
 	concurrency: 2, // Будет переопределено в модуле
@@ -25,23 +23,18 @@ export class ParsingProcessor extends WorkerHost {
 	}
 
 	async process(job: Job<ParsingJobData>): Promise<void> {
-		const { documentId, recordId, userId } = job.data
+		const {
+			documentId,
+			recordId,
+			userId,
+			minioObjectKey,
+			mimeType,
+			originalFileName,
+		} = job.data
 
 		this.logger.log(`🔄 Processing parsing job for document ${documentId}`)
 
 		try {
-			// Получаем документ из БД
-			const document = await this.parsingService.getDocument(documentId)
-
-			if (!document) {
-				throw new Error(`Document ${documentId} not found`)
-			}
-
-			if (document.deletedAt) {
-				this.logger.warn(`Document ${documentId} was deleted, skipping`)
-				return
-			}
-
 			// Публикуем событие о начале парсинга документа
 			await this.eventsService.publishEvent({
 				type: "parsing:document:started",
@@ -50,14 +43,14 @@ export class ParsingProcessor extends WorkerHost {
 				documentId,
 				timestamp: new Date().toISOString(),
 				data: {
-					filename: document.originalFileName,
+					filename: originalFileName,
 				},
 			})
 
-			// Скачиваем и парсим документ (PDF или TXT)
+			// Скачиваем и парсим документ (PDF или TXT) — данные из job payload
 			const content = await this.parsingService.parseDocument(
-				document.minioObjectKey,
-				document.mimeType,
+				minioObjectKey,
+				mimeType,
 			)
 
 			// Разбиваем на чанки
@@ -65,21 +58,32 @@ export class ParsingProcessor extends WorkerHost {
 				content.text.toLowerCase().trim(),
 			)
 
-			// Сохраняем результат (raw текст + чанки в DocumentChunk)
-			await this.parsingService.saveExtractedContent(
+			// Сохраняем чанки в processing-service БД (своя схема)
+			await this.parsingService.saveChunks(
 				documentId,
+				recordId,
 				userId,
-				content,
 				chunks,
 			)
 
-			// Обновляем статус на PROCESSING (готов к AI обработке)
-			await this.parsingService.updateDocumentStatus(
+			// Публикуем результат парсинга в document-service (extractedText, metadata)
+			await this.parsingService.publishDocumentParsed(
 				documentId,
-				DocumentStatus.PROCESSING,
+				recordId,
+				userId,
+				content,
+				chunks.length,
 			)
 
-			// Публикуем событие об успешном парсинге
+			// Обновляем статус на PROCESSING через Redis event → document-service
+			await this.parsingService.publishDocumentStatusUpdate(
+				documentId,
+				recordId,
+				userId,
+				"PROCESSING",
+			)
+
+			// Публикуем событие об успешном парсинге (для SSE/WebSocket)
 			await this.eventsService.publishEvent({
 				type: "parsing:document:completed",
 				recordId,
@@ -98,8 +102,13 @@ export class ParsingProcessor extends WorkerHost {
 			)
 
 			// Проверяем, все ли документы Record спарсены
+			// expectedDocumentIds берём из job payload (все документы этого Record)
+			const allDocumentIds = job.data.allDocumentIds ?? [documentId]
 			const { allParsed, documentIds } =
-				await this.parsingService.checkAllDocumentsParsed(recordId)
+				await this.parsingService.checkAllDocumentsParsed(
+					recordId,
+					allDocumentIds,
+				)
 
 			if (allParsed) {
 				this.logger.log(
@@ -150,15 +159,17 @@ export class ParsingProcessor extends WorkerHost {
 				`❌ Failed to parse document ${documentId}: ${errorMessage}`,
 			)
 
-			// Обновляем статус на FAILED с указанием фазы
-			await this.parsingService.updateDocumentStatus(
+			// Обновляем статус на FAILED через Redis event → document-service
+			await this.parsingService.publishDocumentStatusUpdate(
 				documentId,
-				DocumentStatus.FAILED,
+				recordId,
+				userId,
+				"FAILED",
 				errorMessage,
 				FailedPhase.PARSING,
 			)
 
-			// Публикуем событие об ошибке
+			// Публикуем событие об ошибке (для SSE/WebSocket)
 			await this.eventsService.publishEvent({
 				type: "parsing:failed",
 				recordId,

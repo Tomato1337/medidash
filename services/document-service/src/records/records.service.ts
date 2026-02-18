@@ -12,6 +12,36 @@ import {
 	RecordsUsersResponseDto,
 } from "./dto/record.dto"
 import { DocumentStatus, type DocumentStatusValues } from "@shared-types"
+import { Prisma } from "generated/prisma"
+
+/** Shape returned by list queries (minimal document fields) */
+type RecordWithMinimalDocs = Prisma.RecordGetPayload<{
+	include: {
+		tags: { include: { tag: true } }
+		documents: { select: { status: true; id: true; failedPhase: true } }
+		_count: { select: { documents: true } }
+	}
+}>
+
+/** Shape returned by detail query (full document fields) */
+type RecordWithFullDocs = Prisma.RecordGetPayload<{
+	include: {
+		tags: { include: { tag: true } }
+		documents: {
+			select: {
+				status: true
+				id: true
+				failedPhase: true
+				fileSize: true
+				fileName: true
+				originalFileName: true
+			}
+		}
+		_count: { select: { documents: true } }
+	}
+}>
+
+type RecordWithRelations = RecordWithMinimalDocs | RecordWithFullDocs
 
 @Injectable()
 export class RecordsService {
@@ -235,18 +265,17 @@ export class RecordsService {
 		this.logger.log(`✅ Deleted record ${recordId}`)
 	}
 
-	private mapToResponseDto(record: any): RecordResponseDto {
+	private mapToResponseDto(record: RecordWithRelations): RecordResponseDto {
 		let recordStatus: DocumentStatusValues = DocumentStatus.COMPLETED
 		let recordFailedPhase: string | null = null
 
 		if (record.documents && record.documents.length > 0) {
-			const statuses = record.documents.map((doc: any) => doc.status)
+			const statuses = record.documents.map((doc) => doc.status)
 
 			if (statuses.includes(DocumentStatus.FAILED)) {
 				recordStatus = DocumentStatus.FAILED
-				// Находим фазу ошибки из первого упавшего документа
 				const failedDoc = record.documents.find(
-					(doc: any) =>
+					(doc) =>
 						doc.status === DocumentStatus.FAILED && doc.failedPhase,
 				)
 				recordFailedPhase = failedDoc?.failedPhase || null
@@ -256,14 +285,10 @@ export class RecordsService {
 				recordStatus = DocumentStatus.PARSING
 			} else if (statuses.includes(DocumentStatus.PROCESSING)) {
 				recordStatus = DocumentStatus.PROCESSING
-			} else if (
-				statuses.every((s: string) => s === DocumentStatus.COMPLETED)
-			) {
+			} else if (statuses.every((s) => s === DocumentStatus.COMPLETED)) {
 				recordStatus = DocumentStatus.COMPLETED
 			}
 		}
-		console.log(record.documents)
-		//
 
 		return {
 			id: record.id,
@@ -276,16 +301,18 @@ export class RecordsService {
 			status: recordStatus,
 			failedPhase: recordFailedPhase,
 			documents:
-				record.documents?.map((doc: any) => ({
+				record.documents?.map((doc) => ({
 					id: doc.id,
 					status: doc.status,
-					fileSize: doc.fileSize,
-					fileName: doc.fileName,
-					originalFileName: doc.originalFileName,
+					fileSize: (doc as { fileSize?: number }).fileSize ?? 0,
+					fileName: (doc as { fileName?: string }).fileName ?? "",
+					originalFileName:
+						(doc as { originalFileName?: string })
+							.originalFileName ?? "",
 					failedPhase: doc.failedPhase || null,
 				})) || [],
 			updatedAt: record.updatedAt,
-			tags: record.tags?.map((rt: any) => rt.tag) || [],
+			tags: record.tags?.map((rt) => rt.tag) || [],
 			documentCount: record._count?.documents || 0,
 		}
 	}

@@ -1,9 +1,10 @@
 import { Injectable, Logger } from "@nestjs/common"
-import { DocumentStatus } from "generated/prisma"
 import pdfParse from "pdf-parse"
 import { MinioService } from "../minio/minio.service"
 import { PrismaService } from "../prisma/prisma.service"
+import { EventsService } from "../events/events.service"
 import { EnvService } from "src/env/env.service"
+import { RedisChannels } from "@shared-types"
 
 export interface ParsedContent {
 	text: string
@@ -32,6 +33,7 @@ export class ParsingService {
 		private configService: EnvService,
 		private minioService: MinioService,
 		private prismaService: PrismaService,
+		private eventsService: EventsService,
 	) {
 		this.chunkSize = this.configService.get("CHUNK_SIZE")
 		this.chunkOverlap = this.configService.get("CHUNK_OVERLAP")
@@ -56,13 +58,6 @@ export class ParsingService {
 		const isTxt =
 			mimeType === "text/plain" ||
 			objectName.toLowerCase().endsWith(".txt")
-
-		// TODO: add image parsing
-		// const isImg =
-		// 	mimeType === "image/jpeg" ||
-		// 	mimeType === "image/png" ||
-		// 	objectName.toLowerCase().endsWith(".jpg") ||
-		// 	objectName.toLowerCase().endsWith(".png")
 
 		if (isPdf) {
 			return this.parsePdf(buffer)
@@ -209,51 +204,68 @@ export class ParsingService {
 	}
 
 	/**
-	 * Обновляет статус документа в базе данных
+	 * Публикует обновление статуса документа в document-service через Redis.
+	 * document-service подписан на этот канал и обновляет свою БД.
 	 */
-	async updateDocumentStatus(
+	async publishDocumentStatusUpdate(
 		documentId: string,
-		status: DocumentStatus,
+		recordId: string,
+		userId: string,
+		status: string,
 		error?: string,
 		failedPhase?: string,
 	): Promise<void> {
-		await this.prismaService.document.update({
-			where: { id: documentId },
-			data: {
+		await this.eventsService.publishToChannel(
+			RedisChannels.DOCUMENT_STATUS_UPDATE,
+			{
+				documentId,
+				recordId,
+				userId,
 				status,
 				...(error && { errorMessage: error }),
 				...(failedPhase && { failedPhase }),
 			},
-		})
+		)
 	}
 
 	/**
-	 * Сохраняет извлеченный текст (raw) и создаёт записи DocumentChunk
-	 * extractedText хранится как raw для recovery
-	 * DocumentChunk.content пока содержит оригинальный текст,
-	 * анонимизация происходит на этапе AI обработки
+	 * Публикует результат парсинга в document-service через Redis.
+	 * document-service сохраняет extractedText и metadata в Document.
 	 */
-	async saveExtractedContent(
+	async publishDocumentParsed(
 		documentId: string,
+		recordId: string,
 		userId: string,
 		content: ParsedContent,
-		chunks: TextChunk[],
+		chunksCount: number,
 	): Promise<void> {
-		// Сохраняем raw текст в Document
-		await this.prismaService.document.update({
-			where: { id: documentId },
-			data: {
-				extractedText: content.text, // Raw текст для recovery
+		await this.eventsService.publishToChannel(
+			RedisChannels.DOCUMENT_PARSED,
+			{
+				documentId,
+				recordId,
+				userId,
+				extractedText: content.text,
 				metadata: {
 					pageCount: content.pageCount,
 					...content.metadata,
-					chunksCount: chunks.length,
+					chunksCount,
 					chunkSize: this.chunkSize,
 					chunkOverlap: this.chunkOverlap,
 				},
 			},
-		})
+		)
+	}
 
+	/**
+	 * Сохраняет чанки в processing-service БД (DocumentChunk — своя схема)
+	 */
+	async saveChunks(
+		documentId: string,
+		recordId: string,
+		userId: string,
+		chunks: TextChunk[],
+	): Promise<void> {
 		// Удаляем старые чанки если есть (для retry)
 		await this.prismaService.documentChunk.deleteMany({
 			where: { documentId },
@@ -264,57 +276,47 @@ export class ParsingService {
 		await this.prismaService.documentChunk.createMany({
 			data: chunks.map((chunk) => ({
 				documentId,
+				recordId,
 				userId,
-				content: chunk.content, // Пока оригинальный текст, анонимизируется на этапе AI
+				content: chunk.content,
 				order: chunk.index,
 				// embedding остаётся null
 			})),
 		})
 
 		this.logger.debug(
-			`Saved extracted content for document ${documentId}: ${content.text.length} chars, ${chunks.length} chunks in DocumentChunk table`,
+			`Saved ${chunks.length} chunks for document ${documentId}`,
 		)
 	}
 
 	/**
-	 * Получает документ из базы данных
+	 * Проверяет, все ли документы Record спарсены.
+	 * Использует только processing-service БД (DocumentChunk).
+	 * Логика: если для recordId есть чанки от N документов — все спарсены.
+	 * expectedCount передаётся из job payload.
 	 */
-	async getDocument(documentId: string) {
-		return this.prismaService.document.findUnique({
-			where: { id: documentId },
-			include: { record: true },
-		})
-	}
-
-	/**
-	 * Проверяет, все ли документы Record спарсены
-	 */
-	async checkAllDocumentsParsed(recordId: string): Promise<{
+	async checkAllDocumentsParsed(
+		recordId: string,
+		expectedDocumentIds: string[],
+	): Promise<{
 		allParsed: boolean
 		documentIds: string[]
-		failedCount: number
 	}> {
-		const documents = await this.prismaService.document.findMany({
-			where: {
-				recordId,
-				deletedAt: null,
-			},
-			select: {
-				id: true,
-				status: true,
-			},
+		// Находим уникальные documentId у которых есть чанки для этого recordId
+		const chunks = await this.prismaService.documentChunk.findMany({
+			where: { recordId },
+			select: { documentId: true },
+			distinct: ["documentId"],
 		})
 
-		const parsedStatuses = ["PROCESSING", "COMPLETED"]
-		const parsedDocuments = documents.filter((d) =>
-			parsedStatuses.includes(d.status),
+		const parsedDocumentIds = chunks.map((c) => c.documentId)
+		const allParsed = expectedDocumentIds.every((id) =>
+			parsedDocumentIds.includes(id),
 		)
-		const failedDocuments = documents.filter((d) => d.status === "FAILED")
 
 		return {
-			allParsed: parsedDocuments.length === documents.length,
-			documentIds: parsedDocuments.map((d) => d.id),
-			failedCount: failedDocuments.length,
+			allParsed,
+			documentIds: parsedDocumentIds,
 		}
 	}
 }

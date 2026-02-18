@@ -8,16 +8,12 @@ COPY services/api-gateway/.npmrc services/api-gateway/package.json services/api-
 
 RUN npm ci
 
-COPY prisma/schema.prisma /app/prisma/schema.prisma
-COPY prisma/package.json prisma/package-lock.json /app/prisma/
-
-RUN cd /app/prisma && npm ci
-
 COPY services/shared-types /app/shared-types
 
 RUN cd /app/shared-types && npm ci && npm run build
+
 COPY services/api-gateway .
 
 EXPOSE 3000
 
-CMD sh -c "cd /app/prisma && npm run migrate:deploy && mkdir -p /app/dist/prisma/generated && rsync -av --exclude='*.dll.node' /app/prisma/generated/ /app/dist/prisma/generated/ && cd /app && npm run start:dev"
+CMD sh -c "npm run generate && npm run migrate:deploy && npm run start:dev"

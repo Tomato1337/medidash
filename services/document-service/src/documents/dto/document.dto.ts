@@ -73,6 +73,9 @@ export class DocumentResponseDto {
 	@ApiProperty({ required: false })
 	processedAt: Date | null
 
+	@ApiProperty({ required: false })
+	failedPhase: string | null
+
 	@ApiProperty()
 	createdAt: Date
 

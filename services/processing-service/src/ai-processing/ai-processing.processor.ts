@@ -1,8 +1,7 @@
 import { Processor, WorkerHost, OnWorkerEvent } from "@nestjs/bullmq"
 import { Logger } from "@nestjs/common"
 import { Job } from "bullmq"
-import { DocumentStatus } from "generated/prisma"
-import { AiProcessingJobData, FailedPhase } from "@shared-types"
+import { AiProcessingJobData, FailedPhase, DocumentStatus } from "@shared-types"
 import { AiProcessingService } from "./ai-processing.service"
 import { EventsService } from "../events/events.service"
 import { QUEUES } from "../queue/queue.constants"
@@ -78,13 +77,18 @@ export class AiProcessingProcessor extends WorkerHost {
 					allAnonymizedText,
 				)
 
-			await this.aiProcessingService.saveTagsForRecord(recordId, tags)
-
-			await this.aiProcessingService.updateRecordWithAiResults(
+			// Отправляем результаты обработки в document-service через Redis
+			await this.aiProcessingService.notifyRecordProcessingCompleted(
 				recordId,
-				title,
-				summary,
-				report,
+				userId,
+				{
+					title,
+					summary,
+					report,
+					tags,
+					tokensUsed,
+					structuredData: {}, // TODO: Add structured data generation
+				},
 			)
 
 			// Обновляем статус всех документов на COMPLETED

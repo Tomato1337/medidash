@@ -1,7 +1,13 @@
 import { Injectable, Logger, HttpException, HttpStatus } from "@nestjs/common"
-import { DocumentStatus, PiiType } from "generated/prisma"
+import { PiiType } from "generated/prisma"
+import {
+	DocumentStatus,
+	DocumentStatusValues,
+	RedisChannels,
+} from "@shared-types"
 import { PrismaService } from "../prisma/prisma.service"
 import { EnvService } from "src/env/env.service"
+import { EventsService } from "../events/events.service"
 import axios, { AxiosInstance } from "axios"
 
 // Динамический импорт для ESM модуля tonl
@@ -70,6 +76,7 @@ export class AiProcessingService {
 	constructor(
 		private configService: EnvService,
 		private prismaService: PrismaService,
+		private eventsService: EventsService,
 	) {
 		this.aiServiceUrl = this.configService.get("AI_SERVICE_URL")
 
@@ -378,10 +385,10 @@ export class AiProcessingService {
 			// Обновляем DocumentChunk с анонимизированным контентом и эмбеддингом
 			// Используем raw SQL для pgvector
 			await this.prismaService.$executeRaw`
-				UPDATE "DocumentChunk" 
+				UPDATE "processing"."document_chunks" 
 				SET 
 					content = ${chunk.anonymizedContent},
-					embedding = ${embeddingStr}::vector,
+					embedding = ${embeddingStr}::processing.vector,
 					"updatedAt" = NOW()
 				WHERE id = ${chunk.id}
 			`
@@ -393,6 +400,7 @@ export class AiProcessingService {
 					data: chunk.piiMappings.map((pii) => ({
 						documentId: chunk.documentId,
 						userId: chunk.userId,
+						chunkId: chunk.id,
 						original: pii.original, // TODO: encrypt with AES
 						replacement: pii.replacement,
 						type: pii.type,
@@ -408,126 +416,61 @@ export class AiProcessingService {
 	}
 
 	/**
-	 * Обновляет статус документа
+	 * Обновляет статус документа через событие
 	 */
 	async updateDocumentStatus(
 		documentId: string,
-		status: DocumentStatus,
+		status: DocumentStatusValues,
 		error?: string,
 		failedPhase?: string,
 	): Promise<void> {
-		await this.prismaService.document.update({
-			where: { id: documentId },
-			data: {
-				status,
-				...(error && { errorMessage: error }),
-				...(failedPhase && { failedPhase }),
+		await this.eventsService.publishToChannel(
+			RedisChannels.DOCUMENT_STATUS_UPDATE,
+			{
+				documentId,
+				status: status.toString(),
+				errorMessage: error,
+				failedPhase,
+				timestamp: new Date().toISOString(),
 			},
-		})
+		)
 	}
 
 	/**
-	 * Обновляет статус всех документов Record
+	 * Обновляет статус всех документов Record через события
 	 */
 	async updateRecordDocumentsStatus(
 		documentIds: string[],
-		status: DocumentStatus,
+		status: DocumentStatusValues,
 	): Promise<void> {
-		await this.prismaService.document.updateMany({
-			where: { id: { in: documentIds } },
-			data: { status },
-		})
+		// Публикуем событие для каждого документа
+		// В будущем можно оптимизировать через bulk update event если будет поддержан
+		await Promise.all(
+			documentIds.map((id) => this.updateDocumentStatus(id, status)),
+		)
 	}
 
 	/**
-	 * Обновляет Record с результатами AI обработки
+	 * Публикует результаты AI обработки в Redis
 	 */
-	async updateRecordWithAiResults(
+	async notifyRecordProcessingCompleted(
 		recordId: string,
-		title: string,
-		summary: string,
-		report: string,
-		structuredData?: Record<string, unknown>,
+		userId: string,
+		data: {
+			title: string
+			summary: string
+			report: string
+			tags: Array<{ name: string }>
+			tokensUsed: number
+			structuredData?: Record<string, unknown>
+		},
 	): Promise<void> {
-		const record = await this.prismaService.record.findUnique({
-			where: { id: recordId },
+		await this.eventsService.publishRecordAiCompleted(recordId, userId, {
+			title: data.title,
+			summary: data.summary,
+			description: data.report,
+			tags: data.tags.map((t) => t.name),
+			structuredData: data.structuredData,
 		})
-		console.log(title)
-		const isChangingTitle = record?.title === ""
-		await this.prismaService.record.update({
-			where: { id: recordId },
-			data: {
-				title: isChangingTitle ? title : record?.title,
-				summary,
-				description: report,
-				status: DocumentStatus.COMPLETED, // Также обновляем статус Record
-				...(structuredData && { structuredData }),
-			},
-		})
-	}
-
-	/**
-	 * Сохраняет теги для Record
-	 * Если тег с таким именем существует — connect, иначе create + connect
-	 */
-	async saveTagsForRecord(
-		recordId: string,
-		tags: Array<{
-			name: string
-			description: string
-			color: string
-			isSystem: boolean
-		}>,
-	): Promise<void> {
-		for (const tag of tags) {
-			// Проверяем, существует ли тег с таким именем
-			const existingTag = await this.prismaService.tag.findUnique({
-				where: { name: tag.name },
-			})
-
-			if (existingTag) {
-				// Тег существует — создаём только связь (если она ещё не существует)
-				await this.prismaService.recordTag.upsert({
-					where: {
-						recordId_tagId: {
-							recordId,
-							tagId: existingTag.id,
-						},
-					},
-					create: {
-						recordId,
-						tagId: existingTag.id,
-					},
-					update: {}, // Ничего не обновляем, связь уже есть
-				})
-
-				this.logger.debug(
-					`Connected existing tag "${tag.name}" to record ${recordId}`,
-				)
-			} else {
-				// Тег не существует — создаём новый тег и связь
-				const newTag = await this.prismaService.tag.create({
-					data: {
-						name: tag.name,
-						description: tag.description,
-						color: tag.color,
-						isSystem: tag.isSystem,
-					},
-				})
-
-				await this.prismaService.recordTag.create({
-					data: {
-						recordId,
-						tagId: newTag.id,
-					},
-				})
-
-				this.logger.debug(
-					`Created new tag "${tag.name}" and connected to record ${recordId}`,
-				)
-			}
-		}
-
-		this.logger.log(`✅ Saved ${tags.length} tags for record ${recordId}`)
 	}
 }

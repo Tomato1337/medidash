@@ -74,3 +74,6 @@ services/*/dist
 .git_backup
 
 generated
+
+# OwnYourCode - personal career tracking
+ownyourcode/career/

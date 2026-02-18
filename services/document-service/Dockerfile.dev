@@ -8,11 +8,6 @@ COPY services/document-service/package.json services/document-service/package-lo
 
 RUN npm ci
 
-COPY prisma/schema.prisma /app/prisma/schema.prisma
-COPY prisma/package.json prisma/package-lock.json /app/prisma/
-
-RUN cd /app/prisma && npm ci
-
 COPY services/shared-types /app/shared-types
 
 RUN cd /app/shared-types && npm ci && npm run build
@@ -21,4 +16,4 @@ COPY services/document-service .
 
 EXPOSE 3001
 
-CMD sh -c "cd /app/prisma && npm run migrate:deploy && sleep 5 && mkdir -p /app/dist/prisma/generated && rsync -av --exclude='*.dll.node' /app/prisma/generated/ /app/dist/prisma/generated/ && cd /app && npm run start:dev"
+CMD sh -c "npm run generate && npm run migrate:deploy && npm run start:dev"

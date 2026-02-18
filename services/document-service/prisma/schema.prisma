@@ -1,0 +1,129 @@
+// document-service Prisma Schema
+// Owns: Record, Document, Tag, RecordTag, SystemSetting
+// Schema: document
+
+generator client {
+    provider   = "prisma-client"
+    engineType = "client"
+    output     = "../generated/prisma/client"
+    moduleFormat = "cjs"
+}
+
+datasource db {
+    provider = "postgresql"
+    schemas  = ["document"]
+}
+
+enum DocumentStatus {
+    UPLOADING
+    PARSING
+    PROCESSING
+    COMPLETED
+    FAILED
+
+    @@schema("document")
+}
+
+// Record - группа связанных медицинских документов
+model Record {
+    id                     String         @id @default(cuid())
+    userId                 String
+    title                  String
+    description            String?
+    date                   DateTime       @default(now())
+    summary                String?
+    status                 DocumentStatus @default(UPLOADING)
+    expectedDocumentsCount Int?
+    createdAt              DateTime       @default(now())
+    updatedAt              DateTime       @updatedAt
+    deletedAt              DateTime?
+
+    documents Document[]
+    tags      RecordTag[]
+
+    @@index([userId])
+    @@index([date])
+    @@map("records")
+    @@schema("document")
+}
+
+// Document - отдельный медицинский документ
+model Document {
+    id               String         @id @default(cuid())
+    recordId         String
+    userId           String
+    title            String
+    description      String?
+    fileName         String
+    originalFileName String
+    mimeType         String
+    fileSize         Int
+    minioUrl         String
+    minioBucket      String         @default("medical-documents")
+    minioObjectKey   String
+    status           DocumentStatus @default(UPLOADING)
+    errorMessage     String?
+    failedPhase      String?
+    extractedText    String?        @db.Text
+    metadata         Json?
+    processedAt      DateTime?
+    createdAt        DateTime       @default(now())
+    updatedAt        DateTime       @updatedAt
+    deletedAt        DateTime?
+
+    record Record @relation(fields: [recordId], references: [id], onDelete: Cascade)
+
+    @@index([recordId])
+    @@index([userId])
+    @@index([status])
+    @@index([createdAt])
+    @@map("documents")
+    @@schema("document")
+}
+
+// Tag - теги для категоризации
+model Tag {
+    id          String   @id @default(cuid())
+    name        String   @unique
+    description String?
+    color       String?
+    isSystem    Boolean  @default(false)
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+
+    records RecordTag[]
+
+    @@map("tags")
+    @@schema("document")
+}
+
+// RecordTag - связь многие-ко-многим
+model RecordTag {
+    id        String   @id @default(cuid())
+    recordId  String
+    tagId     String
+    createdAt DateTime @default(now())
+
+    record Record @relation(fields: [recordId], references: [id], onDelete: Cascade)
+    tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+    @@unique([recordId, tagId])
+    @@index([recordId])
+    @@index([tagId])
+    @@map("record_tags")
+    @@schema("document")
+}
+
+// SystemSetting - настройки системы
+model SystemSetting {
+    id        String   @id @default(cuid())
+    key       String   @unique
+    value     String   @db.Text
+    category  String
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([category])
+    @@map("system_settings")
+    @@schema("document")
+}

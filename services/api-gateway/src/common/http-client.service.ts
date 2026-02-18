@@ -54,66 +54,23 @@ export class HttpClientService {
 
 		try {
 			const response = await fetch(url, options)
-
 			if (!response.ok) {
-				let errorData: {
-					message?: string | string[]
-					error?: string
-				} | null = null
-
-				try {
-					errorData = (await response.json()) as {
-						message?: string | string[]
-						error?: string
-					}
-				} catch {
-					// Если не JSON, используем текст
-					const errorText = await response.text()
-					this.logger.error(
-						`Error from ${serviceName} (${response.status}): ${errorText}`,
-					)
-					throw new HttpException(
-						errorText ||
-							`Service ${serviceName} returned ${response.status}`,
-						response.status,
-					)
-				}
-
-				const message =
-					errorData?.message ||
-					`Service ${serviceName} returned ${response.status}`
-				this.logger.error(
-					`Error from ${serviceName} (${response.status}): ${message}`,
-				)
-
-				if (errorData) {
-					throw new HttpException(errorData, response.status)
-				}
-
-				throw new HttpException(message, response.status)
+				await this.handleErrorResponse(serviceName, response)
 			}
-
-			// Проверяем, есть ли контент
 			const contentType = response.headers.get("content-type")
 			if (contentType?.includes("application/json")) {
 				return (await response.json()) as T
 			}
-
-			// Если не JSON, возвращаем пустой объект
 			return {} as T
 		} catch (error) {
-			// Если это уже HttpException, пробрасываем дальше
 			if (error instanceof HttpException) {
 				throw error
 			}
-
-			// Обрабатываем сетевые ошибки
 			const message =
 				error instanceof Error ? error.message : "Unknown error"
 			this.logger.error(
 				`Failed to communicate with ${serviceName}: ${message}`,
 			)
-
 			throw new HttpException(
 				`Failed to communicate with ${serviceName}: ${message}`,
 				HttpStatus.SERVICE_UNAVAILABLE,
@@ -150,7 +107,6 @@ export class HttpClientService {
 			headers,
 		})
 	}
-	// fsdf
 
 	/**
 	 * POST request with raw body (for multipart/form-data, streams, etc.)
@@ -182,61 +138,23 @@ export class HttpClientService {
 				// @ts-expect-error - duplex is required for streams but not in TypeScript types yet
 				duplex: "half",
 			})
-
 			if (!response.ok) {
-				let errorData: {
-					message?: string | string[]
-					error?: string
-				} | null = null
-
-				try {
-					errorData = (await response.json()) as {
-						message?: string | string[]
-						error?: string
-					}
-				} catch {
-					const errorText = await response.text()
-					this.logger.error(
-						`Error from ${serviceName} (${response.status}): ${errorText}`,
-					)
-					throw new HttpException(
-						errorText ||
-							`Service ${serviceName} returned ${response.status}`,
-						response.status,
-					)
-				}
-
-				const message =
-					errorData?.message ||
-					`Service ${serviceName} returned ${response.status}`
-				this.logger.error(
-					`Error from ${serviceName} (${response.status}): ${message}`,
-				)
-
-				if (errorData) {
-					throw new HttpException(errorData, response.status)
-				}
-
-				throw new HttpException(message, response.status)
+				await this.handleErrorResponse(serviceName, response)
 			}
-
 			const contentType = response.headers.get("content-type")
 			if (contentType?.includes("application/json")) {
 				return (await response.json()) as T
 			}
-
 			return {} as T
 		} catch (error) {
 			if (error instanceof HttpException) {
 				throw error
 			}
-
 			const message =
 				error instanceof Error ? error.message : "Unknown error"
 			this.logger.error(
 				`Failed to communicate with ${serviceName}: ${message}`,
 			)
-
 			throw new HttpException(
 				`Failed to communicate with ${serviceName}: ${message}`,
 				HttpStatus.SERVICE_UNAVAILABLE,
@@ -291,14 +209,56 @@ export class HttpClientService {
 	}
 
 	/**
+	 * Handles non-OK HTTP responses from microservices.
+	 * Parses JSON error body when available, falls back to text.
+	 */
+	private async handleErrorResponse(
+		serviceName: string,
+		response: Response,
+	): Promise<never> {
+		type ErrorBody = { message?: string | string[]; error?: string }
+		let errorData: ErrorBody | null = null
+		try {
+			errorData = (await response.json()) as ErrorBody
+		} catch {
+			const errorText = await response.text()
+			this.logger.error(
+				`Error from ${serviceName} (${response.status}): ${errorText}`,
+			)
+			throw new HttpException(
+				errorText ||
+					`Service ${serviceName} returned ${response.status}`,
+				response.status,
+			)
+		}
+		const rawMessage =
+			errorData?.message ||
+			`Service ${serviceName} returned ${response.status}`
+		const message = Array.isArray(rawMessage)
+			? rawMessage.join(", ")
+			: rawMessage
+		this.logger.error(
+			`Error from ${serviceName} (${response.status}): ${message}`,
+		)
+		throw new HttpException(errorData ?? message, response.status)
+	}
+
+	/**
 	 * Check health of a microservice
 	 */
 	async checkHealth(serviceName: string): Promise<boolean> {
 		try {
-			await this.get(serviceName, "/health")
+			// Most services have global prefix 'api'
+			await this.get(serviceName, "/api/health")
 			return true
 		} catch {
-			return false
+			try {
+				// Fallback to /health for services without prefix
+				await this.get(serviceName, "/health")
+				return true
+			} catch {
+				return false
+			}
 		}
 	}
 

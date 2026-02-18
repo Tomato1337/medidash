@@ -26,6 +26,7 @@ services:
             - ${POSTGRES_PORT}:5432
         volumes:
             - postgres_data:/var/lib/postgresql/data
+            - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
         networks:
             - medical-docs-network
             - frontend
@@ -141,7 +142,7 @@ services:
             - ${API_GATEWAY_PORT:-3000}:${API_GATEWAY_PORT:-3000}
         environment:
             NODE_ENV: dev
-            DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-medical_docs}?schema=public
+            DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-medical_docs}?schema=auth
             REDIS_HOST: redis
             REDIS_PORT: 6379
             DOCUMENT_SERVICE_URL: http://document-service:${DOCUMENT_SERVICE_PORT:-3001}
@@ -164,7 +165,7 @@ services:
             - frontend
         volumes:
             - ./services/api-gateway/src:/app/src
-            - ./prisma:/app/prisma
+            - ./services/api-gateway/prisma:/app/prisma
             - /app/node_modules
             - /app/prisma/node_modules
         healthcheck:
@@ -189,7 +190,7 @@ services:
             - ${PROCESSING_SERVICE_PORT:-3002}:${PROCESSING_SERVICE_PORT:-3002}
         environment:
             NODE_ENV: dev
-            DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-medical_docs}?schema=public
+            DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-medical_docs}?schema=processing
             # Redis for BullMQ and Pub/Sub
             REDIS_HOST: redis
             REDIS_PORT: 6379
@@ -202,6 +203,8 @@ services:
             MINIO_USE_SSL: "false"
             # AI Service URL
             AI_SERVICE_URL: http://ai-service:${AI_SERVICE_PORT:-3003}
+            # Document Service URL
+            DOCUMENT_SERVICE_URL: http://document-service:${DOCUMENT_SERVICE_PORT:-3001}
             # Processing settings
             PARSING_CONCURRENCY: ${PARSING_CONCURRENCY:-2}
             AI_PROCESSING_CONCURRENCY: ${AI_PROCESSING_CONCURRENCY:-1}
@@ -221,7 +224,7 @@ services:
         volumes:
             - ./services/processing-service/src:/app/src
             - ./services/shared-types:/app/shared-types
-            - ./prisma:/app/prisma
+            - ./services/processing-service/prisma:/app/prisma
             - /app/node_modules
             - /app/prisma/node_modules
             - /app/shared-types/node_modules
@@ -248,7 +251,7 @@ services:
             - ${DOCUMENT_SERVICE_PORT:-3001}:${DOCUMENT_SERVICE_PORT:-3001}
         environment:
             NODE_ENV: dev
-            DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-medical_docs}?schema=public
+            DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-medical_docs}?schema=document
             REDIS_HOST: redis
             REDIS_PORT: 6379
             MINIO_ENDPOINT: minio
@@ -273,7 +276,7 @@ services:
         volumes:
             - ./services/document-service/src:/app/src
             - ./services/shared-types:/app/shared-types
-            - ./prisma:/app/prisma
+            - ./services/document-service/prisma:/app/prisma
             - /app/node_modules
             - /app/prisma/node_modules
             - /app/shared-types/node_modules
@@ -300,7 +303,7 @@ services:
             - ${AI_SERVICE_PORT:-3003}:${AI_SERVICE_PORT:-3003}
         environment:
             NODE_ENV: dev
-            DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-medical_docs}?schema=public
+            DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-medical_docs}?schema=ai
             AI_SERVICE_PORT: ${AI_SERVICE_PORT:-3003}
             GEMINI_API_KEY: ${GEMINI_API_KEY}
             ANONYMIZER_SERVICE_URL: http://anonymizer-service:8000
@@ -316,9 +319,7 @@ services:
         volumes:
             - ./services/ai-service/src:/app/src
             - ./services/shared-types:/app/shared-types
-            - ./prisma:/app/prisma
             - /app/node_modules
-            - /app/prisma/node_modules
             - /app/shared-types/node_modules
         healthcheck:
             test:

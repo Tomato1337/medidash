@@ -7,7 +7,12 @@ import {
 import { InjectQueue } from "@nestjs/bullmq"
 import { Queue } from "bullmq"
 import Redis, { RedisOptions } from "ioredis"
-import { RedisChannels, ProcessingEvent, ParsingJobData } from "@shared-types"
+import {
+	RedisChannels,
+	ProcessingEvent,
+	ParsingJobData,
+	AiProcessingJobData,
+} from "@shared-types"
 import { QUEUES, JOBS } from "../queue/queue.constants"
 import { EnvService } from "src/env/env.service"
 
@@ -20,6 +25,7 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
 	constructor(
 		private configService: EnvService,
 		@InjectQueue(QUEUES.PARSING) private parsingQueue: Queue,
+		@InjectQueue(QUEUES.AI_PROCESSING) private aiProcessingQueue: Queue,
 	) {}
 
 	async onModuleInit() {
@@ -96,6 +102,8 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
 			this.logger.log(`📨 Received message on channel: ${channel}`)
 			if (channel === RedisChannels.RECORD_READY_FOR_PARSING) {
 				await this.handleRecordReadyForParsing(message)
+			} else if (channel === RedisChannels.RECORD_READY_FOR_AI) {
+				await this.handleRecordReadyForAi(message)
 			}
 		})
 
@@ -104,9 +112,10 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
 			await this.subscriber.connect()
 			await this.publisher.connect()
 
-			// Подписка на канал готовности Record к парсингу
+			// Подписка на каналы
 			const result = await this.subscriber.subscribe(
 				RedisChannels.RECORD_READY_FOR_PARSING,
+				RedisChannels.RECORD_READY_FOR_AI,
 			)
 			this.logger.log(
 				`📡 Successfully subscribed to ${RedisChannels.RECORD_READY_FOR_PARSING} (${result} channels)`,
@@ -137,21 +146,32 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
 			const data = JSON.parse(message) as {
 				recordId: string
 				userId: string
-				documentIds: string[]
+				documents: {
+					id: string
+					minioObjectKey: string
+					mimeType: string
+					originalFileName: string
+				}[]
 				timestamp: string
 			}
 
 			this.logger.log(
-				`📥 Received record.ready-for-parsing for record ${data.recordId} with ${data.documentIds.length} documents`,
+				`📥 Received record.ready-for-parsing for record ${data.recordId} with ${data.documents.length} documents`,
 			)
 
+			const allDocumentIds = data.documents.map((d) => d.id)
+
 			// Создаем задачу парсинга для каждого документа
-			const jobs = data.documentIds.map((documentId) => ({
+			const jobs = data.documents.map((doc) => ({
 				name: JOBS.PARSE_DOCUMENT,
 				data: {
-					documentId,
+					documentId: doc.id,
 					recordId: data.recordId,
 					userId: data.userId,
+					minioObjectKey: doc.minioObjectKey,
+					mimeType: doc.mimeType,
+					originalFileName: doc.originalFileName,
+					allDocumentIds,
 				} satisfies ParsingJobData,
 				opts: {
 					attempts: 3,
@@ -180,10 +200,10 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
 				type: "parsing:started",
 				recordId: data.recordId,
 				userId: data.userId,
-				documentId: data.documentIds[0], // первый документ для логирования
+				documentId: data.documents[0].id, // первый документ для логирования
 				timestamp: new Date().toISOString(),
 				data: {
-					totalDocuments: data.documentIds.length,
+					totalDocuments: data.documents.length,
 				},
 			})
 		} catch (error) {
@@ -210,34 +230,103 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
 	}
 
 	/**
-	 * Вручную триггерит парсинг для восстановления
-	 * Используется RecoveryController
+	 * Публикует сообщение в произвольный Redis канал
+	 * Используется для межсервисных событий (document.status.update, document.parsed, record.ai.completed)
 	 */
-	async triggerParsingForDocuments(
+	async publishToChannel(
+		channel: string,
+		data: Record<string, unknown>,
+	): Promise<void> {
+		if (!this.publisher) {
+			this.logger.warn(
+				"Publisher not initialized, skipping channel publish",
+			)
+			return
+		}
+		await this.publisher.publish(channel, JSON.stringify(data))
+		this.logger.debug(`📤 Published to channel ${channel}`)
+	}
+
+	/**
+	 * Публикует результат AI обработки Record в document-service через Redis.
+	 */
+	async publishRecordAiCompleted(
 		recordId: string,
 		userId: string,
-		documentIds: string[],
+		data: {
+			title: string
+			summary: string
+			description: string
+			structuredData?: Record<string, unknown>
+			tags: string[]
+			extractedDate?: string
+		},
 	): Promise<void> {
-		const jobs = documentIds.map((documentId) => ({
-			name: JOBS.PARSE_DOCUMENT,
-			data: {
-				documentId,
-				recordId,
-				userId,
-			} satisfies ParsingJobData,
-			opts: {
-				attempts: 3,
-				backoff: {
-					type: "exponential" as const,
-					delay: 1000,
-				},
-			},
-		}))
-
-		await this.parsingQueue.addBulk(jobs)
-
-		this.logger.log(
-			`🔄 Recovery: Added ${jobs.length} parsing jobs for record ${recordId}`,
-		)
+		await this.publishToChannel(RedisChannels.RECORD_AI_COMPLETED, {
+			recordId,
+			userId,
+			...data,
+		})
 	}
+
+	/**
+	 * Обработка события готовности Record к AI обработке
+	 * Создает задачу AI обработки для всего Record
+	 */
+	private async handleRecordReadyForAi(message: string): Promise<void> {
+		try {
+			const data = JSON.parse(message) as {
+				recordId: string
+				userId: string
+				documentIds: string[]
+			}
+
+			this.logger.log(
+				`📥 Received record.ready-for-ai for record ${data.recordId} with ${data.documentIds.length} documents`,
+			)
+
+			// Создаем задачу AI обработки
+			await this.aiProcessingQueue.add(
+				JOBS.PROCESS_RECORD,
+				{
+					recordId: data.recordId,
+					userId: data.userId,
+					documentIds: data.documentIds,
+				} satisfies AiProcessingJobData,
+				{
+					attempts: 3,
+					backoff: {
+						type: "exponential",
+						delay: 1000,
+					},
+					removeOnComplete: {
+						count: 100,
+						age: 24 * 60 * 60, // 24 hours
+					},
+					removeOnFail: {
+						count: 50,
+					},
+				},
+			)
+
+			this.logger.log(
+				`📝 Added AI processing job for record ${data.recordId}`,
+			)
+
+			// Публикуем событие о начале обработки
+			await this.publishEvent({
+				type: "processing:started",
+				recordId: data.recordId,
+				userId: data.userId,
+				timestamp: new Date().toISOString(),
+			})
+		} catch (error) {
+			this.logger.error(
+				`Failed to handle record.ready-for-ai: ${error instanceof Error ? error.message : error}`,
+			)
+		}
+	}
+
+	// Removed triggerParsingForDocuments as it is dead code and lacks necessary metadata for ParsingJobData
+	// RecoveryService now uses publishToChannel to request retry from document-service
 }

@@ -1,0 +1,15 @@
+// api-gateway Prisma Schema
+// Owns: User, RefreshToken
+// Schema: auth
+
+generator client {
+    provider   = "prisma-client"
+    engineType = "client"
+    output     = "../generated/prisma/client"
+    moduleFormat = "cjs"
+}
+
+datasource db {
+    provider = "postgresql"
+    schemas  = ["ai"]
+}

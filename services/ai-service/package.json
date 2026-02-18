@@ -12,7 +12,12 @@
 		"start:dev": "nest start --watch --clear=false",
 		"start:debug": "nest start --debug --watch",
 		"start:prod": "node dist/main",
-		"lint": "eslint \"{src,apps,libs}/**/*.ts\" --fix"
+		"lint": "eslint \"{src,apps,libs}/**/*.ts\" --fix",
+		"generate": "prisma generate",
+		"migrate:dev": "prisma migrate dev",
+		"migrate:deploy": "prisma migrate deploy",
+		"migrate:reset": "prisma migrate reset",
+		"studio": "prisma studio"
 	},
 	"_moduleAliases": {
 		"@shared-types": "dist/shared-types"

@@ -3,13 +3,18 @@ import {
 	Logger,
 	NotFoundException,
 	BadRequestException,
+	Inject,
+	forwardRef,
 } from "@nestjs/common"
 import { PrismaService } from "../prisma/prisma.service"
 import { MinioService } from "../minio/minio.service"
 import { RedisService } from "../redis/redis.service"
+import { EnvService } from "../env/env.service"
 import { DocumentResponseDto } from "./dto/document.dto"
 import { randomUUID } from "crypto"
 import { Readable } from "stream"
+import { Document } from "generated/prisma"
+import { FailedPhase, RedisChannels } from "@shared-types"
 
 @Injectable()
 export class DocumentsService {
@@ -20,8 +25,17 @@ export class DocumentsService {
 	constructor(
 		private prisma: PrismaService,
 		private minio: MinioService,
+		@Inject(forwardRef(() => RedisService))
 		private redis: RedisService,
+		private env: EnvService,
 	) {}
+
+	private get minioBaseUrl(): string {
+		const endpoint = this.env.get("MINIO_ENDPOINT")
+		const port = this.env.get("MINIO_PORT")
+		const bucket = this.env.get("MINIO_BUCKET_NAME")
+		return `http://${endpoint}:${port}/${bucket}`
+	}
 
 	/**
 	 * Upload document using streaming (рекомендуется)
@@ -110,7 +124,7 @@ export class DocumentsService {
 				originalFileName: file.filename,
 				mimeType: file.mimetype,
 				fileSize,
-				minioUrl: `http://minio:9000/medical-documents/${minioObjectKey}`,
+				minioUrl: `${this.minioBaseUrl}/${minioObjectKey}`,
 				minioBucket: "medical-documents",
 				minioObjectKey,
 				description,
@@ -121,82 +135,6 @@ export class DocumentsService {
 		this.logger.log(
 			`✅ Uploaded document ${document.id} to record ${recordId} (${(fileSize / 1024 / 1024).toFixed(2)}MB)`,
 		)
-
-		// TODO: Send processing event to queue
-		// await this.queueService.addProcessingJob(document.id)
-
-		return this.mapToResponseDto(document)
-	}
-
-	/**
-	 * Upload document using buffer (legacy, для малых файлов)
-	 * @deprecated Используйте uploadDocumentStream
-	 */
-	async uploadDocument(
-		userId: string,
-		recordId: string,
-		file: {
-			filename: string
-			mimetype: string
-			buffer: Buffer
-		},
-		description?: string,
-	): Promise<DocumentResponseDto> {
-		// Verify record belongs to user
-		const record = await this.prisma.record.findFirst({
-			where: {
-				id: recordId,
-				userId,
-				deletedAt: null,
-			},
-		})
-
-		if (!record) {
-			throw new NotFoundException(`Record ${recordId} not found`)
-		}
-
-		// Validate file type
-		const allowedMimeTypes = ["application/pdf", "text/plain"]
-		if (!allowedMimeTypes.includes(file.mimetype)) {
-			throw new BadRequestException("Only PDF and TXT files are allowed")
-		}
-
-		// Generate unique filename
-		const fileExtension =
-			file.mimetype === "application/pdf" ? "pdf" : "txt"
-		const uniqueFilename = `${randomUUID()}.${fileExtension}`
-		const minioObjectKey = `records/${recordId}/${uniqueFilename}`
-
-		// Upload to MinIO
-		await this.minio.uploadFile(minioObjectKey, file.buffer, {
-			"Content-Type": file.mimetype,
-			"X-Original-Filename": file.filename,
-		})
-
-		// Create document record
-		const document = await this.prisma.document.create({
-			data: {
-				recordId,
-				userId,
-				title: file.filename, // Изначально используем имя файла, потом AI может переименовать
-				fileName: uniqueFilename,
-				originalFileName: file.filename,
-				mimeType: file.mimetype,
-				fileSize: file.buffer.length,
-				minioUrl: `http://minio:9000/medical-documents/${minioObjectKey}`,
-				minioBucket: "medical-documents",
-				minioObjectKey,
-				description,
-				status: "UPLOADING",
-			},
-		})
-
-		this.logger.log(
-			`✅ Uploaded document ${document.id} to record ${recordId}`,
-		)
-
-		// TODO: Send processing event to queue
-		// await this.queueService.addProcessingJob(document.id)
 
 		return this.mapToResponseDto(document)
 	}
@@ -382,7 +320,7 @@ export class DocumentsService {
 				originalFileName: fileName,
 				mimeType,
 				fileSize,
-				minioUrl: `http://minio:9000/medical-documents/${minioObjectKey}`,
+				minioUrl: `${this.minioBaseUrl}/${minioObjectKey}`,
 				minioBucket: "medical-documents",
 				minioObjectKey,
 				status: "UPLOADING",
@@ -478,6 +416,9 @@ export class DocumentsService {
 			select: {
 				id: true,
 				status: true,
+				minioObjectKey: true,
+				mimeType: true,
+				originalFileName: true,
 			},
 		})
 
@@ -488,7 +429,9 @@ export class DocumentsService {
 		// Проверяем что все документы имеют статус PARSING (готовы к обработке)
 		const allReady = documents.every((doc) => doc.status === "PARSING")
 
-		console.log(allReady, documents)
+		this.logger.debug(
+			`Record ${recordId}: allReady=${allReady}, statuses=${JSON.stringify(documents.map((d) => d.status))}`,
+		)
 
 		if (!allReady) {
 			const statusCounts = documents.reduce(
@@ -513,11 +456,16 @@ export class DocumentsService {
 
 		const documentIds = documents.map((doc) => doc.id)
 
-		// Публикуем событие для Processing Service
+		// Публикуем событие для Processing Service (с метаданными документов)
 		await this.redis.publishRecordReadyForParsing({
 			recordId,
 			userId,
-			documentIds,
+			documents: documents.map((doc) => ({
+				id: doc.id,
+				minioObjectKey: doc.minioObjectKey,
+				mimeType: doc.mimeType,
+				originalFileName: doc.originalFileName,
+			})),
 		})
 
 		this.logger.log(
@@ -527,7 +475,7 @@ export class DocumentsService {
 		return true
 	}
 
-	private mapToResponseDto(document: any): DocumentResponseDto {
+	private mapToResponseDto(document: Document): DocumentResponseDto {
 		return {
 			id: document.id,
 			recordId: document.recordId,
@@ -540,8 +488,224 @@ export class DocumentsService {
 			status: document.status,
 			errorMessage: document.errorMessage,
 			processedAt: document.processedAt,
+			failedPhase: document.failedPhase,
 			createdAt: document.createdAt,
 			updatedAt: document.updatedAt,
+		}
+	}
+
+	// ========================================================================
+	// EVENT HANDLERS (for cross-service communication)
+	// ========================================================================
+
+	async updateDocumentStatusFromEvent(
+		documentId: string,
+		status: string,
+		errorMessage?: string,
+		failedPhase?: string,
+	): Promise<void> {
+		try {
+			// @ts-ignore - status string to enum cast
+			await this.prisma.document.update({
+				where: { id: documentId },
+				data: {
+					status: status as any,
+					errorMessage,
+					failedPhase,
+				},
+			})
+			this.logger.debug(
+				`Updated document ${documentId} status to ${status} from event`,
+			)
+		} catch (error) {
+			this.logger.error(
+				`Failed to update document ${documentId} status from event: ${error}`,
+			)
+		}
+	}
+
+	async updateDocumentExtractedContent(
+		documentId: string,
+		extractedText: string,
+		metadata: any,
+	): Promise<void> {
+		try {
+			await this.prisma.document.update({
+				where: { id: documentId },
+				data: {
+					extractedText,
+					metadata,
+				},
+			})
+			this.logger.debug(
+				`Updated document ${documentId} extracted content from event`,
+			)
+		} catch (error) {
+			this.logger.error(
+				`Failed to update document ${documentId} content from event: ${error}`,
+			)
+		}
+	}
+
+	async updateRecordFromAiResult(
+		recordId: string,
+		tags?: string[],
+		title?: string,
+		extractedDate?: Date,
+		summary?: string,
+		description?: string,
+		structuredData?: Record<string, any>,
+	): Promise<void> {
+		try {
+			// 1. Update Record fields
+			await this.prisma.record.update({
+				where: { id: recordId },
+				data: {
+					status: "COMPLETED",
+					...(title && { title }),
+					...(extractedDate && { date: extractedDate }),
+					...(summary && { summary }),
+					...(description && { description }),
+					...(structuredData && { structuredData }),
+				},
+			})
+
+			// 2. Handle Tags if provided
+			if (tags && tags.length > 0) {
+				// Ensure tags exist
+				for (const tagName of tags) {
+					await this.prisma.tag.upsert({
+						where: { name: tagName },
+						update: {},
+						create: { name: tagName },
+					})
+				}
+
+				// Get all tag IDs
+				const tagRecords = await this.prisma.tag.findMany({
+					where: { name: { in: tags } },
+				})
+
+				// Create RecordTag connections
+				await this.prisma.recordTag.createMany({
+					data: tagRecords.map((tag) => ({
+						recordId,
+						tagId: tag.id,
+					})),
+					skipDuplicates: true,
+				})
+			}
+
+			this.logger.log(`Updated record ${recordId} from AI result event`)
+		} catch (error) {
+			this.logger.error(
+				`Failed to update record ${recordId} from AI result event: ${error}`,
+			)
+		}
+	}
+
+	async handleRetryParsing(recordId: string, userId: string): Promise<void> {
+		try {
+			// 1. Find failed documents
+			const failedDocuments = await this.prisma.document.findMany({
+				where: {
+					recordId,
+					status: "FAILED",
+					failedPhase: FailedPhase.PARSING,
+				},
+			})
+
+			if (failedDocuments.length === 0) {
+				this.logger.warn(
+					`No failed parsing documents found for retry in record ${recordId}`,
+				)
+				return
+			}
+
+			// 2. Reset status to PARSING
+			await this.prisma.document.updateMany({
+				where: {
+					id: { in: failedDocuments.map((d) => d.id) },
+				},
+				data: {
+					status: "PARSING",
+					failedPhase: null,
+					errorMessage: null,
+				},
+			})
+
+			// 3. Publish RECORD_READY_FOR_PARSING
+			await this.redis.publishRecordReadyForParsing({
+				recordId,
+				userId,
+				documents: failedDocuments.map((doc) => ({
+					id: doc.id,
+					minioObjectKey: doc.minioObjectKey,
+					mimeType: doc.mimeType,
+					originalFileName: doc.originalFileName,
+				})),
+			})
+
+			this.logger.log(
+				`Retrying parsing for ${failedDocuments.length} documents in record ${recordId}`,
+			)
+		} catch (error) {
+			this.logger.error(
+				`Failed to handle retry parsing for record ${recordId}: ${error.message}`,
+			)
+		}
+	}
+
+	async handleRetryAi(recordId: string, userId: string): Promise<void> {
+		try {
+			// 1. Find documents for AI retry: FAILED (processing) or PROCESSING (stuck)
+			const documents = await this.prisma.document.findMany({
+				where: {
+					recordId,
+					OR: [
+						{
+							status: "FAILED",
+							failedPhase: FailedPhase.PROCESSING,
+						},
+						{ status: "PROCESSING" },
+					],
+				},
+			})
+
+			if (documents.length === 0) {
+				this.logger.warn(
+					`No documents found for AI retry in record ${recordId}`,
+				)
+				return
+			}
+
+			// 2. Reset status to PROCESSING
+			await this.prisma.document.updateMany({
+				where: {
+					id: { in: documents.map((d) => d.id) },
+				},
+				data: {
+					status: "PROCESSING",
+					failedPhase: null,
+					errorMessage: null,
+				},
+			})
+
+			// 3. Publish RECORD_READY_FOR_AI
+			await this.redis.publish(RedisChannels.RECORD_READY_FOR_AI, {
+				recordId,
+				userId,
+				documentIds: documents.map((d) => d.id),
+				timestamp: new Date().toISOString(),
+			})
+
+			this.logger.log(
+				`Retrying AI processing for ${documents.length} documents in record ${recordId}`,
+			)
+		} catch (error) {
+			this.logger.error(
+				`Failed to handle retry AI for record ${recordId}: ${error.message}`,
+			)
 		}
 	}
 }

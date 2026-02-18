@@ -1,0 +1,53 @@
+// api-gateway Prisma Schema
+// Owns: User, RefreshToken
+// Schema: auth
+
+generator client {
+    provider   = "prisma-client"
+    engineType = "client"
+    output     = "../generated/prisma/client"
+    moduleFormat = "cjs"
+}
+
+datasource db {
+    provider = "postgresql"
+    schemas  = ["auth"]
+}
+
+enum Role {
+    USER
+    ADMIN
+
+    @@schema("auth")
+}
+
+model User {
+    id        String   @id @default(cuid())
+    email     String   @unique
+    name      String
+    password  String
+    role      Role     @default(USER)
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    refreshTokens RefreshToken[]
+
+    @@index([email])
+    @@map("users")
+    @@schema("auth")
+}
+
+model RefreshToken {
+    id        String   @id @default(cuid())
+    token     String   @unique
+    userId    String
+    expiresAt DateTime
+    createdAt DateTime @default(now())
+
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@index([userId])
+    @@index([token])
+    @@map("refresh_tokens")
+    @@schema("auth")
+}

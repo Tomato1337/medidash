@@ -1,7 +1,11 @@
 import { IsString, IsIn } from "class-validator"
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger"
-import { DocumentStatus } from "generated/prisma"
-import { FailedPhase, type FailedPhaseValues } from "@shared-types"
+import {
+	FailedPhase,
+	type FailedPhaseValues,
+	DocumentStatus,
+	type DocumentStatusValues,
+} from "@shared-types"
 
 // ============ Request DTOs ============
 
@@ -79,7 +83,7 @@ export class DocumentStatusDto {
 		enum: ["UPLOADING", "PARSING", "PROCESSING", "COMPLETED", "FAILED"],
 		example: "PROCESSING",
 	})
-	status: DocumentStatus
+	status: DocumentStatusValues
 
 	@ApiPropertyOptional({
 		description: "Фаза, на которой произошла ошибка",

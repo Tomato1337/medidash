@@ -10,6 +10,7 @@ import { AuthModule } from "./auth/auth.module"
 import { UserModule } from "./user/user.module"
 import { HealthModule } from "./health/health.module"
 import { SseModule } from "./sse/sse.module"
+import { SharedAccessModule } from "./shared-access/shared-access.module"
 import { ValidationPipe, Logger } from "@nestjs/common"
 import fastifyCookie from "@fastify/cookie"
 import fastifyMultipart from "@fastify/multipart"
@@ -73,7 +74,7 @@ async function bootstrap() {
 
 	// Generate API Gateway's own OpenAPI spec (only auth, users, health, sse)
 	const gatewayDocument = SwaggerModule.createDocument(app, gatewayConfig, {
-		include: [AuthModule, UserModule, HealthModule, SseModule],
+		include: [AuthModule, UserModule, HealthModule, SseModule, SharedAccessModule],
 	})
 
 	// Aggregate specs from all microservices

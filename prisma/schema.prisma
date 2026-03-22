@@ -40,6 +40,12 @@ enum PiiType {
     OTHER // Другие персональные данные
 }
 
+enum SharedAccessStatus {
+    ACTIVE // Доступ активен
+    REVOKED // Доступ отозван владельцем
+    EXPIRED // Доступ истёк (устанавливается CRON-задачей)
+}
+
 // ============================================================================
 // USER MANAGEMENT
 // ============================================================================
@@ -54,8 +60,9 @@ model User {
     updatedAt DateTime @updatedAt
 
     // Relations
-    refreshTokens RefreshToken[]
-    records       Record[]
+    refreshTokens  RefreshToken[]
+    records        Record[]
+    sharedAccesses SharedAccess[]
 
     @@index([email])
 }
@@ -239,4 +246,63 @@ model SystemSetting {
     updatedAt DateTime @updatedAt
 
     @@index([category])
+}
+
+// ============================================================================
+// SHARED ACCESS - гостевой доступ к медицинскому профилю
+// ============================================================================
+
+// SharedAccess - запись о предоставленном доступе (ссылка + пароль)
+model SharedAccess {
+    id             String             @id @default(cuid())
+    userId         String // Владелец профиля
+    name           String // Имя профиля доступа, например "Для терапевта"
+    token          String             @unique // Уникальный URL-safe токен (~22 символа, crypto.randomBytes)
+    passwordHash   String // bcrypt хеш сгенерированного пароля
+    status         SharedAccessStatus @default(ACTIVE)
+    expiresAt      DateTime // Дата истечения доступа
+    lastAccessedAt DateTime? // Последний вход по ссылке
+    createdAt      DateTime           @default(now())
+    updatedAt      DateTime           @updatedAt
+
+    // Relations
+    user          User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+    logs          SharedAccessLog[]
+    refreshTokens SharedAccessRefreshToken[]
+
+    @@index([userId])
+    @@index([token])
+    @@index([status])
+}
+
+// SharedAccessRefreshToken - refresh-токены гостевых сессий (изолированы от основных RefreshToken)
+model SharedAccessRefreshToken {
+    id             String   @id @default(cuid())
+    tokenHash      String   @unique // bcrypt хеш refresh-токена
+    sharedAccessId String
+    ip             String? // IP адрес при выдаче/обновлении токена
+    userAgent      String? // User-Agent браузера гостя
+    lastUsedAt     DateTime @default(now()) // Обновляется при каждом refresh
+    expiresAt      DateTime // Максимум 24 часа
+    createdAt      DateTime @default(now())
+
+    // Relations
+    sharedAccess SharedAccess @relation(fields: [sharedAccessId], references: [id], onDelete: Cascade)
+
+    @@index([sharedAccessId])
+    @@index([expiresAt])
+}
+
+// SharedAccessLog - лог входов по гостевой ссылке (аудит)
+model SharedAccessLog {
+    id             String   @id @default(cuid())
+    sharedAccessId String
+    ip             String?
+    userAgent      String?
+    createdAt      DateTime @default(now())
+
+    // Relations
+    sharedAccess SharedAccess @relation(fields: [sharedAccessId], references: [id], onDelete: Cascade)
+
+    @@index([sharedAccessId])
 }

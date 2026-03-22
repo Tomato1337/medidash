@@ -16,6 +16,8 @@ import { EnvService } from "./env/env.service"
 import { AllExceptionsFilter } from "./common/all-exceptions.filter"
 import { LoggerMiddleware } from "./common/logger.middleware"
 import { UserContextInterceptor } from "./common/user-context.interceptor"
+import { SharedAccessModule } from "./shared-access/shared-access.module"
+import { ScheduleModule } from "@nestjs/schedule"
 
 @Module({
 	imports: [
@@ -25,6 +27,8 @@ import { UserContextInterceptor } from "./common/user-context.interceptor"
 			load: [configuration],
 			validate: validateEnv,
 		}),
+
+		ScheduleModule.forRoot(),
 
 		ThrottlerModule.forRootAsync({
 			inject: [EnvService],
@@ -46,6 +50,7 @@ import { UserContextInterceptor } from "./common/user-context.interceptor"
 		ProxyModule,
 		AuthModule,
 		UserModule,
+		SharedAccessModule,
 	],
 	controllers: [],
 	providers: [

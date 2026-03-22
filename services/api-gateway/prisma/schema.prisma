@@ -21,6 +21,14 @@ enum Role {
     @@schema("auth")
 }
 
+enum SharedAccessStatus {
+    ACTIVE
+    REVOKED
+    EXPIRED
+
+    @@schema("auth")
+}
+
 model User {
     id        String   @id @default(cuid())
     email     String   @unique
@@ -31,6 +39,7 @@ model User {
     updatedAt DateTime @updatedAt
 
     refreshTokens RefreshToken[]
+    sharedAccesses SharedAccess[]
 
     @@index([email])
     @@map("users")
@@ -49,5 +58,60 @@ model RefreshToken {
     @@index([userId])
     @@index([token])
     @@map("refresh_tokens")
+    @@schema("auth")
+}
+
+model SharedAccess {
+    id             String             @id @default(cuid())
+    userId         String
+    name           String
+    token          String             @unique
+    passwordHash   String
+    status         SharedAccessStatus @default(ACTIVE)
+    expiresAt      DateTime
+    lastAccessedAt DateTime?
+    createdAt      DateTime           @default(now())
+    updatedAt      DateTime           @updatedAt
+
+    user          User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+    logs          SharedAccessLog[]
+    refreshTokens SharedAccessRefreshToken[]
+
+    @@index([userId])
+    @@index([token])
+    @@index([status])
+    @@map("shared_access")
+    @@schema("auth")
+}
+
+model SharedAccessRefreshToken {
+    id             String   @id @default(cuid())
+    tokenHash      String   @unique
+    sharedAccessId String
+    ip             String?
+    userAgent      String?
+    lastUsedAt     DateTime @default(now())
+    expiresAt      DateTime
+    createdAt      DateTime @default(now())
+
+    sharedAccess SharedAccess @relation(fields: [sharedAccessId], references: [id], onDelete: Cascade)
+
+    @@index([sharedAccessId])
+    @@index([expiresAt])
+    @@map("shared_access_refresh_tokens")
+    @@schema("auth")
+}
+
+model SharedAccessLog {
+    id             String   @id @default(cuid())
+    sharedAccessId String
+    ip             String?
+    userAgent      String?
+    createdAt      DateTime @default(now())
+
+    sharedAccess SharedAccess @relation(fields: [sharedAccessId], references: [id], onDelete: Cascade)
+
+    @@index([sharedAccessId])
+    @@map("shared_access_logs")
     @@schema("auth")
 }

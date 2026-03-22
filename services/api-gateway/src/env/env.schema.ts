@@ -20,6 +20,20 @@ export const envSchema = z.object({
 		.min(16, "JWT_REFRESH_SECRET должен содержать минимум 16 символов"),
 	JWT_REFRESH_EXPIRES_IN: z.string().default("7d"),
 
+	JWT_SHARED_ACCESS_SECRET: z
+		.string()
+		.min(
+			16,
+			"JWT_SHARED_ACCESS_SECRET должен содержать минимум 16 символов",
+		),
+	JWT_SHARED_ACCESS_REFRESH_SECRET: z
+		.string()
+		.min(
+			16,
+			"JWT_SHARED_ACCESS_REFRESH_SECRET должен содержать минимум 16 символов",
+		),
+
+	FRONTEND_URL: z.string().default("http://localhost:5173"),
 	CORS_ORIGIN: z.string().default("http://localhost:5173"),
 
 	DOCUMENT_SERVICE_URL: z.url(),

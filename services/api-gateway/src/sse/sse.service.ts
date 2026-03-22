@@ -146,6 +146,7 @@ export class SseService implements OnModuleInit, OnModuleDestroy {
 		this.logger.debug(
 			`Processing event: ${event.type} for record ${event.recordId}`,
 		)
+		const isSharedAccessEvent = event.type.startsWith("shared-access:")
 
 		// Отправляем событие всем заинтересованным клиентам
 		for (const client of this.clients.values()) {
@@ -155,7 +156,11 @@ export class SseService implements OnModuleInit, OnModuleDestroy {
 			}
 
 			// Проверяем, что клиент подписан на события этого record (или на все)
-			if (client.recordId && client.recordId !== event.recordId) {
+			if (
+				!isSharedAccessEvent &&
+				client.recordId &&
+				client.recordId !== event.recordId
+			) {
 				continue
 			}
 
@@ -190,6 +195,19 @@ export class SseService implements OnModuleInit, OnModuleDestroy {
 			JSON.stringify(event),
 		)
 		this.logger.debug(`Published ${type} event for record ${recordId}`)
+	}
+
+	/**
+	 * Публикует кастомное событие в Redis (например, shared-access:login)
+	 */
+	async publishRawEvent(event: ProcessingEvent) {
+		await this.redisPublisher.publish(
+			"processing:events",
+			JSON.stringify(event),
+		)
+		this.logger.debug(
+			`Published raw event ${event.type} for record ${event.recordId}`,
+		)
 	}
 
 	/**

@@ -34,7 +34,6 @@ export class SseController {
 	): void {
 		const userId = request.user?.id
 		const clientId = randomUUID()
-		console.log(request.user)
 		this.sseService.addClient(clientId, userId, reply.raw)
 	}
 

@@ -1,27 +1,15 @@
-import { Link } from "@tanstack/react-router"
-import { Button } from "./button"
+import { CircleQuestionMark } from 'lucide-react'
 
-export function NotFound() {
+export function NotFound({className, ...props}: React.HTMLAttributes<HTMLDivElement>) {
 	return (
-		<div className="flex min-h-screen items-center justify-center bg-background p-4">
-			<div className="w-full max-w-md space-y-4 text-center">
-				<div className="space-y-2">
-					<h1 className="text-6xl font-bold tracking-tighter">404</h1>
-					<h2 className="text-2xl font-semibold">
-						Страница не найдена
-					</h2>
-					<p className="text-muted-foreground">
-						К сожалению, запрашиваемая страница не существует или была
-						перемещена.
-					</p>
-				</div>
-
-				<div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
-					<Button asChild variant="default">
-						<Link to="/dashboard">Вернуться на главную</Link>
-					</Button>
-				</div>
-			</div>
-		</div>
+		<div className={className} {...props}>
+            <CircleQuestionMark
+                className="text-primary-foreground mx-auto size-32"
+                aria-hidden="true"
+            />
+            <h2 className="text-primary-foreground mt-4 text-center text-2xl font-semibold">
+                Нет результатов по вашему запросу
+            </h2>
+        </div>
 	)
 }

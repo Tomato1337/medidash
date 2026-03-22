@@ -24,6 +24,7 @@ import { Link, useLocation, useNavigate } from "@tanstack/react-router"
 import { useLogout, useUser } from "@/modules/auth"
 import { Skeleton } from "@/shared/ui/skeleton"
 import { useViewMode } from "@/modules/shared-access"
+import { Logo } from '@/shared/ui/logo'
 
 const generateToUrl = (
 	guestAccess: boolean,
@@ -125,14 +126,9 @@ export function AppSidebar({ ownerName }: { ownerName: string }) {
 			<SidebarHeader className="h-20 px-5 py-7.5">
 				<Link
 					to={generateToUrl(type === "guest", "/dashboard", token)}
-					className="text-sidebar-primary-foreground relative flex items-center gap-3 group-data-[collapsible=icon]:justify-center"
+					className="text-sidebar-primary-foreground relative top-[-4px] flex items-center gap-3 group-data-[collapsible=icon]:justify-center"
 				>
-					<span className="font-syne text-primary text-center text-3xl leading-none font-extrabold">
-						M
-					</span>
-					<span className="font-syne text-accent absolute top-1.5 left-12 text-2xl leading-none font-extrabold group-data-[collapsible=icon]:hidden">
-						edidash
-					</span>
+					<Logo/>
 				</Link>
 			</SidebarHeader>
 

@@ -5,9 +5,10 @@ import {
 	useQuery,
 	useQueryClient,
 } from "@tanstack/react-query"
-import type { DisplayRecord } from "../domain/types"
+import type { DisplayRecord, RecordsFilters } from "../domain/types"
 import type { RecordsPageData } from "./queries"
 import { recordQueryOptions, recordsInfiniteQueryOptions } from "./queries"
+import { hasActiveFilters } from "../domain/guards"
 import {
 	createRecordMutation,
 	retryRecordMutation,
@@ -38,8 +39,13 @@ export interface RecordsDataSource {
  * @param dataSource  Optional override — when provided, the hook uses the
  *                    given queryKey/queryFn instead of the default owner API.
  */
-export function useRecords(dataSource?: RecordsDataSource) {
-	const defaultOptions = recordsInfiniteQueryOptions()
+export function useRecords(
+	dataSource?: RecordsDataSource,
+	filters?: RecordsFilters,
+) {
+	const defaultOptions = recordsInfiniteQueryOptions(filters)
+	const shouldShowLocalGroup = !filters || !hasActiveFilters(filters)
+	const isAscSort = filters?.sortDir === "asc"
 	const query = useInfiniteQuery(
 		dataSource
 			? {
@@ -70,11 +76,11 @@ export function useRecords(dataSource?: RecordsDataSource) {
 		const serverRecords = allRecords.filter((r) => !r.isLocal)
 
 		// Add local records group if any
-		if (localRecords.length > 0) {
+		if (shouldShowLocalGroup && localRecords.length > 0) {
 			grouped["Локальные"] = localRecords
 		}
 
-		// Group server records by date
+		// Группируем серверные записи по дате (всегда, независимо от поля сортировки)
 		for (const record of serverRecords) {
 			let dateKey = "Без даты"
 
@@ -100,7 +106,7 @@ export function useRecords(dataSource?: RecordsDataSource) {
 			if (b === "Локальные") return 1
 			if (a === "Без даты") return 1
 			if (b === "Без даты") return -1
-			return b.localeCompare(a)
+			return isAscSort ? a.localeCompare(b) : b.localeCompare(a)
 		})
 
 		const sortedGrouped: GroupedRecords = {}
@@ -109,7 +115,11 @@ export function useRecords(dataSource?: RecordsDataSource) {
 		}
 
 		return sortedGrouped
-	}, [query.data?.pages])
+	}, [
+		query.data?.pages,
+		shouldShowLocalGroup,
+		isAscSort,
+	])
 
 	return {
 		groupedRecords,

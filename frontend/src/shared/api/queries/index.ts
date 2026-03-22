@@ -1,3 +1,5 @@
+import type { RecordsFilters } from "@/modules/records"
+
 // =============================================================================
 // Shared Query Keys Registry
 // =============================================================================
@@ -19,7 +21,8 @@ export const queryKeys = {
 		list: () => [...queryKeys.records.all, "list"] as const,
 		detail: (id: string) =>
 			[...queryKeys.records.all, "detail", id] as const,
-		infinite: () => [...queryKeys.records.all, "infinite"] as const,
+		infinite: (filters?: RecordsFilters) =>
+			[...queryKeys.records.all, "infinite", filters ?? {}] as const,
 	},
 
 	// Documents

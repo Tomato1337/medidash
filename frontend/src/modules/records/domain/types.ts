@@ -66,3 +66,25 @@ export interface CreateRecordInput {
 	}>
 	date?: Date
 }
+
+// =============================================================================
+// Фильтры и сортировка записей
+// =============================================================================
+
+export type RecordSortField = "date" | "createdAt" | "title"
+export type SortDirection = "asc" | "desc"
+
+export interface RecordsFilters {
+	search?: string
+	sortBy: RecordSortField
+	sortDir: SortDirection
+	dateFrom?: string // ISO date "YYYY-MM-DD"
+	dateTo?: string // ISO date "YYYY-MM-DD"
+	tags?: string[] // Tag IDs
+	status?: string[] // DocumentStatus values
+}
+
+export const DEFAULT_FILTERS: RecordsFilters = {
+	sortBy: "date",
+	sortDir: "desc",
+}

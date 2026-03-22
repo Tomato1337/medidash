@@ -4,11 +4,12 @@ import { queryClient } from "../main"
 import { ErrorBoundary } from "@/shared/ui/error-boundary"
 import { NotFound } from "@/shared/ui/not-found"
 import { useCompressionRecovery } from "@/modules/documents"
+import { NotFoundPage } from '@/pages/not-found/not-found'
 
 export const Route = createRootRoute({
 	component: RootComponent,
 	errorComponent: ErrorBoundary,
-	notFoundComponent: NotFound,
+	notFoundComponent: NotFoundPage,
 	beforeLoad: () => {
 		return { queryClient }
 	},

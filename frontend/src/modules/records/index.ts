@@ -10,15 +10,26 @@ export type {
 	DisplayRecord,
 	DisplayDocument,
 	CreateRecordInput,
+	RecordSortField,
+	SortDirection,
+	RecordsFilters,
 } from "./domain/types"
+
+export { DEFAULT_FILTERS } from "./domain/types"
 
 export {
 	localRecordSchema,
 	idbDocumentSchema,
 	idbTagSchema,
+	recordsFiltersSchema,
 } from "./domain/schemas"
 
-export { isLocalRecord, normalizeRecord } from "./domain/guards"
+export {
+	isLocalRecord,
+	normalizeRecord,
+	hasActiveFilters,
+	countActiveFilters,
+} from "./domain/guards"
 export { toDisplayRecord } from "./domain/mappers"
 
 // Application Layer - use cases and query options
@@ -40,7 +51,11 @@ export {
 } from "./application/queries"
 
 // Infrastructure Layer - pure API functions
-export { getRecord, getRecords } from "./infrastructure/recordsApi"
+export {
+	getRecord,
+	getRecords,
+	type RecordsListParams,
+} from "./infrastructure/recordsApi"
 
 export {
 	subscribeToRecordProcessing,

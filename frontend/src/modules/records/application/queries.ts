@@ -3,8 +3,13 @@ import { type DTO } from "@/shared/api/api"
 import { db } from "@/shared/lib/indexedDB"
 import { queryKeys } from "@/shared/api/queries"
 import { getRecord, getRecords } from "../infrastructure/recordsApi"
-import type { DisplayRecord, LocalRecord, UnifiedRecord } from "../domain/types"
-import { normalizeRecord } from "../domain/guards"
+import type {
+	DisplayRecord,
+	LocalRecord,
+	RecordsFilters,
+	UnifiedRecord,
+} from "../domain/types"
+import { hasActiveFilters, normalizeRecord } from "../domain/guards"
 import { toDisplayRecord } from "../domain/mappers"
 
 // =============================================================================
@@ -37,14 +42,21 @@ export const recordQueryOptions = (id: string) =>
 // RECORDS LIST WITH LOCAL MERGE
 // =============================================================================
 
-export const recordsInfiniteQueryOptions = () =>
+export const recordsInfiniteQueryOptions = (filters?: RecordsFilters) =>
 	infiniteQueryOptions({
-		queryKey: queryKeys.records.infinite(),
+		queryKey: queryKeys.records.infinite(filters),
 		queryFn: async ({ pageParam = 1 }): Promise<RecordsPageData> => {
-			const data = await getRecords({ page: pageParam, limit: 10 })
+			const data = await getRecords({
+				page: pageParam,
+				limit: 10,
+				...filters,
+			})
+			const shouldSkipLocalMerge = filters
+				? hasActiveFilters(filters)
+				: false
 
 			// На первой странице добавляем локальные записи
-			if (pageParam === 1) {
+			if (pageParam === 1 && !shouldSkipLocalMerge) {
 				const localRecords = await db.records.toArray()
 
 				// Исключаем локальные записи, которые уже есть на сервере

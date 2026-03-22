@@ -67,3 +67,26 @@ export const localRecordSchema = z.object({
 	errorMessage: z.string().optional(),
 	retryCount: z.number(),
 })
+
+// Схема валидации фильтров из URL search params
+export const recordsFiltersSchema = z.object({
+	search: z.string().max(200).optional().catch(undefined),
+	sortBy: z.enum(["date", "createdAt", "title"]).catch("date"),
+	sortDir: z.enum(["asc", "desc"]).catch("desc"),
+	dateFrom: z.string().optional().catch(undefined),
+	dateTo: z.string().optional().catch(undefined),
+	tags: z
+		.union([
+			z.array(z.string()),
+			z.string().transform((s) => s.split(",").filter(Boolean)),
+		])
+		.optional()
+		.catch(undefined),
+	status: z
+		.union([
+			z.array(z.string()),
+			z.string().transform((s) => s.split(",").filter(Boolean)),
+		])
+		.optional()
+		.catch(undefined),
+})

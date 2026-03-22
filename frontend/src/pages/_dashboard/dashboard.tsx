@@ -1,16 +1,18 @@
 import { Input } from "@/shared/ui/input"
 import { Button } from "@/shared/ui/button"
-import FilterIcon from "@/shared/ui/icons/filter"
-import SortIcon from "@/shared/ui/icons/sort"
 import SearchIcon from "@/shared/ui/icons/search"
 import { MedicalRecordCard } from "@/pages/_dashboard/ui/medical-record-card"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import { CircleQuestionMark, FrownIcon } from "lucide-react"
 import CreateDocumentDialog from "./ui/create-document-dialog"
 import { useViewMode } from "@/modules/shared-access"
 import {
 	useRecords,
 	useRetryRecord,
+	type RecordsFilters,
+	DEFAULT_FILTERS,
+	hasActiveFilters,
+	countActiveFilters,
 	type DisplayRecord,
 	type RecordsDataSource,
 } from "@/modules/records"
@@ -21,12 +23,80 @@ import { useIntersection } from "@/shared/hooks/useInteresction"
 import { Skeleton } from "@/shared/ui/skeleton"
 import { SidebarTrigger } from "@/shared/ui/sidebar"
 import { cn } from "@/shared/lib/utils"
+import { useNavigate, useSearch } from "@tanstack/react-router"
+import { RecordsSortPopover } from "./ui/records-sort-popover"
+import { RecordsFilterPopover } from "./ui/records-filter-popover"
+import { FilterChip } from "./ui/filter-chip"
+import { NotFound } from '@/shared/ui/not-found'
 
 export default function DashboardPage() {
 	const viewMode = useViewMode()
 	const isGuest = viewMode.type === "guest"
+	const navigate = useNavigate()
+	const searchParams = useSearch({ strict: false })
+	const routeFilters = searchParams as Partial<RecordsFilters>
+	const filters: RecordsFilters = {
+		sortBy: routeFilters.sortBy ?? DEFAULT_FILTERS.sortBy,
+		sortDir: routeFilters.sortDir ?? DEFAULT_FILTERS.sortDir,
+		dateFrom: routeFilters.dateFrom,
+		dateTo: routeFilters.dateTo,
+		tags: routeFilters.tags,
+		status: routeFilters.status,
+		search: routeFilters.search,
+	}
+	const filtersActive = hasActiveFilters(filters)
+	const filterCount = countActiveFilters(filters)
+
 	const ref = useRef<HTMLInputElement>(null)
 	const [isWasData, setIsWasData] = useState(true)
+	const [searchInput, setSearchInput] = useState(filters.search ?? "")
+	const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+	const updateFilters = useCallback(
+		(patch: Partial<RecordsFilters>) => {
+			navigate({
+				search: (prev: Record<string, unknown>) => {
+					const next = { ...prev, ...patch }
+
+					// Убираем undefined/пустые значения из URL
+					for (const [key, value] of Object.entries(next)) {
+						if (
+							value === undefined ||
+							value === "" ||
+							(Array.isArray(value) && value.length === 0)
+						) {
+							delete next[key]
+						}
+					}
+
+					// Убираем дефолтные значения
+					if (next.sortBy === DEFAULT_FILTERS.sortBy) delete next.sortBy
+					if (next.sortDir === DEFAULT_FILTERS.sortDir) delete next.sortDir
+
+					return next
+				},
+				replace: true,
+			})
+		},
+		[navigate],
+	)
+
+	const handleSearchChange = useCallback(
+		(value: string) => {
+			setSearchInput(value)
+			if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
+
+			searchTimeoutRef.current = setTimeout(() => {
+				updateFilters({ search: value || undefined })
+			}, 400)
+		},
+		[updateFilters],
+	)
+
+	const clearAllFilters = useCallback(() => {
+		setSearchInput("")
+		navigate({ search: {}, replace: true })
+	}, [navigate])
 
 	// Build guest data source only when in guest mode (stable reference via useMemo)
 	const guestDataSource: RecordsDataSource | undefined = useMemo(() => {
@@ -58,7 +128,7 @@ export default function DashboardPage() {
 		fetchNextPage,
 		hasNextPage,
 		isFetchingNextPage,
-	} = useRecords(guestDataSource)
+	} = useRecords(guestDataSource, filters)
 
 	const infRef = useRef<HTMLDivElement>(null)
 	const isIntersection = useIntersection(infRef, { threshold: 1.0 })
@@ -80,14 +150,25 @@ export default function DashboardPage() {
 	}, [isIntersection, hasNextPage, isFetchingNextPage, fetchNextPage])
 
 	useEffect(() => {
+		setSearchInput(filters.search ?? "")
+	}, [filters.search])
+
+	useEffect(() => {
+		return () => {
+			if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
+		}
+	}, [])
+
+	useEffect(() => {
 		if (
 			groupedRecords &&
 			Object.keys(groupedRecords).length <= 0 &&
-			!isLoading
+			!isLoading &&
+			!filtersActive
 		) {
 			setIsWasData(false)
 		}
-	}, [groupedRecords, isLoading])
+	}, [groupedRecords, isLoading, filtersActive])
 
 	return (
 		<>
@@ -109,36 +190,89 @@ export default function DashboardPage() {
 							type="text"
 							placeholder="Поиск..."
 							aria-label="Поиск"
+							value={searchInput}
+							onChange={(event) => {
+								handleSearchChange(event.target.value)
+							}}
 							className="bg-secondary-foreground text-primary-foreground placeholder:text-primary-foreground/60 selection:bg-primary selection:text-primary-foreground h-full w-full rounded-lg border-2 border-transparent pr-4 pl-12"
 						/>
+						{searchInput && (
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon"
+								onClick={() => {
+									setSearchInput("")
+									if (searchTimeoutRef.current) {
+										clearTimeout(searchTimeoutRef.current)
+									}
+									updateFilters({ search: undefined })
+								}}
+								className="text-primary-foreground/70 hover:text-primary-foreground absolute top-1/2 right-2 h-8 w-8 -translate-y-1/2"
+								aria-label="Очистить поиск"
+							>
+								✕
+							</Button>
+						)}
 					</div>
 					<div className="flex flex-shrink-0 items-center gap-2">
-						<Button
-							variant="ghost"
-							size="icon"
-							className="bg-secondary-foreground hover:bg-primary/10 h-11 w-11 rounded-lg border border-transparent"
-							aria-label="Сортировка"
-						>
-							<SortIcon className="h-5 w-5" aria-hidden="true" />
-						</Button>
-						<Button
-							variant="ghost"
-							size="icon"
-							className="bg-secondary-foreground hover:bg-primary/10 h-11 w-11 rounded-lg border border-transparent"
-							aria-label="Фильтр"
-						>
-							<FilterIcon
-								className="h-5 w-5"
-								aria-hidden="true"
-							/>
-						</Button>
+						<RecordsSortPopover
+							sortBy={filters.sortBy}
+							sortDir={filters.sortDir}
+							onChange={(sortBy, sortDir) => {
+								updateFilters({ sortBy, sortDir })
+							}}
+						/>
+						<RecordsFilterPopover
+							filters={filters}
+							onChange={updateFilters}
+							activeCount={filterCount}
+						/>
 					</div>
 				</div>
+
+				{filtersActive && (
+					<div className="flex flex-wrap items-center gap-2 px-1">
+						{filters.search && (
+							<FilterChip
+								label={`Поиск: ${filters.search}`}
+								onRemove={() => {
+									setSearchInput("")
+									updateFilters({ search: undefined })
+								}}
+							/>
+						)}
+						{filters.dateFrom && (
+							<FilterChip
+								label={`с ${filters.dateFrom}`}
+								onRemove={() => {
+									updateFilters({ dateFrom: undefined })
+								}}
+							/>
+						)}
+						{filters.dateTo && (
+							<FilterChip
+								label={`до ${filters.dateTo}`}
+								onRemove={() => {
+									updateFilters({ dateTo: undefined })
+								}}
+							/>
+						)}
+						<button
+							type="button"
+							onClick={clearAllFilters}
+							className="text-muted-foreground hover:text-foreground text-sm"
+						>
+							Сбросить все
+						</button>
+					</div>
+				)}
 
 				<div
 					className={cn(
 						"bg-secondary-foreground flex min-h-[calc(100vh-135px)] flex-col justify-start space-y-4 overflow-auto rounded-xl p-6 shadow-sm",
 						!isWasData && "justify-center",
+                        Object.keys(groupedRecords).length === 0 && !isLoading && "justify-center",
 					)}
 				>
 					{!isWasData ? (
@@ -223,16 +357,10 @@ export default function DashboardPage() {
 								</div>
 							),
 						)
+					) : !isLoading && filtersActive ? (
+						<NotFound />
 					) : !isLoading ? (
-						<div className="">
-							<CircleQuestionMark
-								className="text-primary-foreground mx-auto size-32"
-								aria-hidden="true"
-							/>
-							<h2 className="text-primary-foreground mt-4 text-center text-2xl font-semibold">
-								Нет результатов по вашему запросу
-							</h2>
-						</div>
+						<NotFound/>
 					) : null}
 
 					<div className="h-1 w-full" ref={infRef}></div>

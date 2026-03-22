@@ -11,8 +11,12 @@ import {
 	RecordResponseDto,
 	RecordsUsersResponseDto,
 } from "./dto/record.dto"
+import { GetRecordsQueryDto } from "./dto/get-records-query.dto"
 import { DocumentStatus, type DocumentStatusValues } from "@shared-types"
-import { Prisma } from "generated/prisma"
+import {
+	Prisma,
+	DocumentStatus as PrismaDocumentStatus,
+} from "generated/prisma"
 
 /** Shape returned by list queries (minimal document fields) */
 type RecordWithMinimalDocs = Prisma.RecordGetPayload<{
@@ -108,52 +112,118 @@ export class RecordsService {
 
 	async getUserRecords(
 		userId: string,
-		page: number,
-		limit: number,
+		query: GetRecordsQueryDto,
 	): Promise<RecordsUsersResponseDto> {
-		const records = await this.prisma.record.findMany({
-			where: {
-				userId,
-				deletedAt: null,
-				documents: {
-					// Пока загружаются документы, не показываем запись, запись будет локальная
-					some: { status: { not: DocumentStatus.UPLOADING } },
-				},
-			},
-			skip: (page - 1) * limit,
-			take: limit,
-			include: {
-				tags: {
-					include: {
-						tag: true,
+		const page = query.page ?? 1
+		const limit = query.limit ?? 10
+		const where = this.buildWhereClause(userId, query)
+		const orderBy = this.buildOrderBy(query)
+
+		const [records, total] = await Promise.all([
+			this.prisma.record.findMany({
+				where,
+				skip: (page - 1) * limit,
+				take: limit,
+				include: {
+					tags: {
+						include: {
+							tag: true,
+						},
+					},
+					documents: {
+						select: {
+							status: true,
+							id: true,
+							failedPhase: true,
+						},
+					},
+					_count: {
+						select: { documents: true },
 					},
 				},
-				documents: {
-					select: {
-						status: true,
-						id: true,
-						failedPhase: true,
-					},
-				},
-				_count: {
-					select: { documents: true },
-				},
-			},
-			orderBy: {
-				date: "desc", // Сортировка по дате записи, а не по createdAt
-			},
-		})
+				orderBy,
+			}),
+			this.prisma.record.count({ where }),
+		])
 
 		return {
 			data: records.map((record) => this.mapToResponseDto(record)),
 			page,
 			limit,
-			total: await this.prisma.record.count({
-				where: {
-					userId,
-					deletedAt: null,
+			total,
+		}
+	}
+
+	private buildWhereClause(
+		userId: string,
+		query: GetRecordsQueryDto,
+	): Prisma.RecordWhereInput {
+		const where: Prisma.RecordWhereInput = {
+			userId,
+			deletedAt: null,
+			documents: {
+				// Пока загружаются документы, не показываем запись, запись будет локальная
+				some: { status: { not: DocumentStatus.UPLOADING } },
+			},
+		}
+
+		if (query.dateFrom || query.dateTo) {
+			const dateFilter: Prisma.DateTimeFilter = {}
+
+			if (query.dateFrom) {
+				dateFilter.gte = new Date(query.dateFrom)
+			}
+
+			if (query.dateTo) {
+				const dateTo = new Date(query.dateTo)
+				dateTo.setHours(23, 59, 59, 999)
+				dateFilter.lte = dateTo
+			}
+
+			where.date = dateFilter
+		}
+
+		if (query.tagIds.length > 0) {
+			where.tags = {
+				some: {
+					tagId: {
+						in: query.tagIds,
+					},
 				},
-			}),
+			}
+		}
+
+		if (query.statusValues.length > 0) {
+			where.status = {
+				in: query.statusValues as PrismaDocumentStatus[],
+			}
+		}
+
+		if (query.search) {
+			where.OR = [
+				{
+					title: {
+						contains: query.search,
+						mode: "insensitive",
+					},
+				},
+				{
+					description: {
+						contains: query.search,
+						mode: "insensitive",
+					},
+				},
+			]
+		}
+
+		return where
+	}
+
+	private buildOrderBy(
+		query: GetRecordsQueryDto,
+	): Prisma.RecordOrderByWithRelationInput {
+		return {
+			[query.sortBy]: query.sortDir,
 		}
 	}
 

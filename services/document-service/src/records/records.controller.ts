@@ -10,11 +10,9 @@ import {
 	Query,
 } from "@nestjs/common"
 import {
-	ApiTags,
 	ApiOperation,
 	ApiResponse,
 	ApiBearerAuth,
-	ApiQuery,
 } from "@nestjs/swagger"
 import { RecordsService } from "./records.service"
 import {
@@ -23,6 +21,7 @@ import {
 	RecordResponseDto,
 	RecordsUsersResponseDto,
 } from "./dto/record.dto"
+import { GetRecordsQueryDto } from "./dto/get-records-query.dto"
 import { CurrentUser } from "../common/decorators/current-user.decorator"
 import { AuthenticatedUser } from "@shared-types"
 
@@ -46,33 +45,16 @@ export class RecordsController {
 
 	@Get()
 	@ApiOperation({ summary: "Get user records" })
-	@ApiQuery({
-		name: "page",
-		required: false,
-		type: Number,
-		example: 1,
-		description: "Page number",
-	})
-	@ApiQuery({
-		name: "limit",
-		required: false,
-		type: Number,
-		example: 10,
-		description: "Number of records per page",
-	})
 	@ApiResponse({ status: 200, type: RecordsUsersResponseDto })
 	async getUserRecords(
 		@CurrentUser() user: AuthenticatedUser | null,
-		@Query("page") page?: number,
-		@Query("limit") limit?: number,
+		@Query() query: GetRecordsQueryDto,
 	): Promise<RecordsUsersResponseDto> {
 		if (!user) {
 			throw new UnauthorizedException("User ID not provided")
 		}
 
-		const maxLimit = Math.min(limit || 10, 100)
-
-		return this.recordsService.getUserRecords(user.id, page || 1, maxLimit)
+		return this.recordsService.getUserRecords(user.id, query)
 	}
 
 	@Get(":id")

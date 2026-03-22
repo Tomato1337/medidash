@@ -106,6 +106,8 @@ model Record {
 
     @@index([userId])
     @@index([date])
+    @@index([userId, date])
+    @@index([userId, createdAt])
 }
 
 // Document - отдельный медицинский документ (PDF или текстовый файл)

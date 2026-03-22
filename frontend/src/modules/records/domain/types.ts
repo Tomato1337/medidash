@@ -42,6 +42,7 @@ export interface DisplayRecord {
 	documents: DisplayDocument[]
 	tags: string[]
 	isLocal: boolean
+	failedPhase?: FailedPhaseValues
 	errorPhase?: FailedPhaseValues
 	syncStatus?: string
 }

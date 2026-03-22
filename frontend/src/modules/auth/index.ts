@@ -12,12 +12,18 @@ export {
 export type { User, LoginInput, RegisterInput } from "./domain/types"
 
 // Application Layer - use cases and query options
-export { useUser, useLogin, useRegister } from "./application/useAuth"
+export {
+	useUser,
+	useLogin,
+	useRegister,
+	useLogout,
+} from "./application/useAuth"
 export {
 	userQueryOptions,
 	loginMutationOptions,
 	registerMutationOptions,
+	logoutMutationOptions,
 } from "./application/queries"
 
 // Infrastructure Layer - pure API functions (for direct use if needed)
-export { login, register, getUser } from "./infrastructure/authApi"
+export { login, register, getUser, logout } from "./infrastructure/authApi"

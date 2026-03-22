@@ -20,18 +20,16 @@ export class SyncManager {
 
 	async startSync(recordId: string, revalidate: () => void): Promise<void> {
 		if (this.isRunning) {
-			console.log("SyncManager: Already running, skipping")
 			return
 		}
 
 		this.isRunning = true
-		console.log("SyncManager: Starting sync for", recordId)
 
 		try {
 			await this.compress(recordId, revalidate)
 			await this.upload(recordId, revalidate)
-		} catch (error) {
-			console.error("SyncManager: Sync failed:", error)
+		} catch {
+			// errors are stored per-document via setDocumentError
 		} finally {
 			this.isRunning = false
 			revalidate()
@@ -56,7 +54,6 @@ export class SyncManager {
 			)
 
 			if (docsToCompress.length === 0) {
-				console.log("SyncManager: No documents to compress")
 				return
 			}
 
@@ -79,7 +76,6 @@ export class SyncManager {
 
 			for (const doc of docsToCompress) {
 				try {
-					console.log("SyncManager: Compressing", doc.file.name)
 					const compressed = await manager.compressFile(doc.file)
 
 					const current = await db.records.get(recordId)
@@ -96,8 +92,6 @@ export class SyncManager {
 								: d,
 						),
 					})
-
-					console.log("SyncManager: Compressed", doc.file.name)
 				} catch (error) {
 					await this.setDocumentError(
 						recordId,
@@ -115,7 +109,6 @@ export class SyncManager {
 				syncStatus: "uploading",
 			})
 		} catch (error) {
-			console.error("SyncManager: Error compressing:", error)
 			const allDocuments = await db.records.get(recordId)
 			allDocuments?.documents.forEach((doc) => {
 				this.setDocumentError(
@@ -140,8 +133,6 @@ export class SyncManager {
 			const record = await db.records.get(recordId)
 			if (!record) throw new Error("Record not found")
 
-			console.log("UPLOADING")
-
 			// Ensure record exists on server
 			await this.ensureServerRecord(record)
 
@@ -154,7 +145,6 @@ export class SyncManager {
 			)
 
 			if (docsToUpload.length === 0) {
-				console.log("SyncManager: No documents to upload")
 				return
 			}
 
@@ -191,13 +181,9 @@ export class SyncManager {
 			)
 
 			if (allProcessing) {
-				console.log(
-					"SyncManager: All documents uploaded, deleting local record",
-				)
 				await db.records.delete(recordId)
 			}
 		} catch (error) {
-			console.error("SyncManager: Error uploading:", error)
 			const allDocuments = await db.records.get(recordId)
 			allDocuments?.documents.forEach((doc) => {
 				this.setDocumentError(
@@ -221,8 +207,6 @@ export class SyncManager {
 		try {
 			const fileToUpload = doc.compressed ?? doc.file
 
-			console.log("SyncManager: Getting presigned URL for", doc.file.name)
-
 			// 1. Get presigned URL
 			const urlRes = await client.POST("/api/documents/upload-url", {
 				body: {
@@ -242,8 +226,6 @@ export class SyncManager {
 				documentId: string
 			}
 
-			console.log("SyncManager: Uploading to S3", doc.file.name)
-
 			// 2. Upload to S3
 			const uploadRes = await fetch(uploadUrl, {
 				method: "PUT",
@@ -253,8 +235,6 @@ export class SyncManager {
 			if (!uploadRes.ok) {
 				throw new Error(`Upload failed: ${uploadRes.statusText}`)
 			}
-
-			console.log("SyncManager: Confirming upload", doc.file.name)
 
 			// 3. Confirm upload
 			await client.GET("/api/documents/{id}/confirm", {
@@ -272,8 +252,6 @@ export class SyncManager {
 						: d,
 				),
 			})
-
-			console.log("SyncManager: Upload complete for", doc.file.name)
 		} catch (error) {
 			await this.setDocumentError(
 				recordId,
@@ -288,8 +266,6 @@ export class SyncManager {
 	}
 
 	private async ensureServerRecord(record: IDBRecord): Promise<void> {
-		console.log("SyncManager: Creating record on server", record.id)
-
 		try {
 			const data = await client.POST("/api/records", {
 				body: {
@@ -303,19 +279,13 @@ export class SyncManager {
 
 			// 409 Conflict means record already exists - that's OK
 			if (data.response.status === 409) {
-				console.log(
-					"SyncManager: Record already exists on server (409)",
-				)
 				return
 			}
 
 			if (!data.response.ok) {
 				throw new Error(`Failed to create record: ${data.error}`)
 			}
-
-			console.log("SyncManager: Record created on server", record.id)
 		} catch (error) {
-			console.error("SyncManager: Error creating record:", error)
 			throw error
 		}
 	}
@@ -328,8 +298,6 @@ export class SyncManager {
 		recordId: string,
 		phase: FailedPhaseValues,
 	): Promise<void> {
-		console.log("SyncManager: Retrying server processing", recordId, phase)
-
 		await client.POST("/api/processing/records/{recordId}/retry/{phase}", {
 			params: { path: { recordId, phase: phase as any } },
 			body: {} as any,
@@ -351,8 +319,6 @@ export class SyncManager {
 
 		const errorMessage =
 			error instanceof Error ? error.message : "Unknown error"
-
-		console.error("SyncManager: Document error", docId, phase, errorMessage)
 
 		await db.records.update(recordId, {
 			status: DocumentStatus.FAILED,

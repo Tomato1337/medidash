@@ -6,13 +6,13 @@ import {
 	useQueryClient,
 } from "@tanstack/react-query"
 import type { DisplayRecord } from "../domain/types"
+import type { RecordsPageData } from "./queries"
 import { recordQueryOptions, recordsInfiniteQueryOptions } from "./queries"
 import {
 	createRecordMutation,
 	retryRecordMutation,
 	deleteLocalRecordMutation,
 } from "../infrastructure/sync"
-import { FailedPhase, type FailedPhaseValues } from "@shared-types"
 
 // =============================================================================
 // GROUPED RECORDS (organized by date)
@@ -23,18 +23,41 @@ export interface GroupedRecords {
 }
 
 /**
- * Use Case: Get records organized by date groups
- * Follows rerender-defer-reads - only subscribes to what's needed for UI
+ * Data source override for useRecords.
+ * Allows the caller to substitute the default query with an alternative
+ * (e.g. shared-access guest API) without the records module knowing about it.
  */
-export function useRecords() {
-	const query = useInfiniteQuery(recordsInfiniteQueryOptions())
+export interface RecordsDataSource {
+	queryKey: unknown[]
+	queryFn: (ctx: { pageParam: number }) => Promise<RecordsPageData>
+}
+
+/**
+ * Use Case: Get records organized by date groups
+ *
+ * @param dataSource  Optional override — when provided, the hook uses the
+ *                    given queryKey/queryFn instead of the default owner API.
+ */
+export function useRecords(dataSource?: RecordsDataSource) {
+	const defaultOptions = recordsInfiniteQueryOptions()
+	const query = useInfiniteQuery(
+		dataSource
+			? {
+					queryKey: dataSource.queryKey,
+					queryFn: ({ pageParam }: { pageParam: unknown }) =>
+						dataSource.queryFn({ pageParam: (pageParam as number) ?? 1 }),
+					initialPageParam: defaultOptions.initialPageParam,
+					getNextPageParam: defaultOptions.getNextPageParam,
+				}
+			: defaultOptions,
+	)
 
 	const groupedRecords = useMemo(() => {
 		if (!query.data?.pages) return {}
 
 		const allRecords: DisplayRecord[] = []
 
-		// Flatten all pages (js-combine-iterations - single pass)
+		// Flatten all pages (single pass)
 		for (const page of query.data.pages) {
 			allRecords.push(...page.data)
 		}
@@ -42,7 +65,7 @@ export function useRecords() {
 		// Group by date
 		const grouped: GroupedRecords = {}
 
-		// First, separate local records
+		// First, separate local records (guests never have local records)
 		const localRecords = allRecords.filter((r) => r.isLocal)
 		const serverRecords = allRecords.filter((r) => !r.isLocal)
 
@@ -99,8 +122,34 @@ export function useRecords() {
 	}
 }
 
-export function useRecord(id: string) {
-	return useQuery(recordQueryOptions(id))
+// =============================================================================
+// SINGLE RECORD
+// =============================================================================
+
+/**
+ * Data source override for useRecord.
+ */
+export interface RecordDataSource {
+	queryKey: unknown[]
+	queryFn: () => Promise<unknown>
+}
+
+/**
+ * Use Case: Get a single record by id.
+ *
+ * @param id          Record id
+ * @param dataSource  Optional override for guest access
+ */
+export function useRecord(id: string, dataSource?: RecordDataSource) {
+	return useQuery(
+		dataSource
+			? {
+					queryKey: dataSource.queryKey,
+					queryFn: dataSource.queryFn,
+					enabled: !!id,
+				}
+			: recordQueryOptions(id),
+	)
 }
 
 // =============================================================================

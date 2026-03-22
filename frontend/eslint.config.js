@@ -5,6 +5,7 @@ import reactRefresh from "eslint-plugin-react-refresh"
 import tseslint from "typescript-eslint"
 import { defineConfig, globalIgnores } from "eslint/config"
 import tailwind from "eslint-plugin-tailwindcss"
+import localRules from "./eslint-local-rules/index.js"
 
 export default defineConfig([
 	globalIgnores(["dist"]),
@@ -20,6 +21,12 @@ export default defineConfig([
 			ecmaVersion: 2020,
 			globals: globals.browser,
 		},
+		// plugins: {
+		// 	feod: localRules,
+		// },
+		// rules: {
+		// 	"feod/page-boundaries": "error",
+		// },
 	},
 	...tailwind.configs["flat/recommended"],
 	{ plugins: ["prettier-plugin-tailwindcss"] },

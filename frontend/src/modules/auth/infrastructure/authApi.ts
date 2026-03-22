@@ -34,3 +34,13 @@ export async function getUser() {
 	if (!data) throw new Error("No user data returned")
 	return data
 }
+
+/**
+ * Logout current user session
+ */
+export async function logout() {
+	const { data, error } = await client.POST("/api/auth/signout")
+	if (error) throw error
+	if (!data) throw new Error("Logout failed - no data returned")
+	return data
+}

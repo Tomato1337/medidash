@@ -4,13 +4,32 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
 		return null
 	}
 
+	if (import.meta.env.DEV) {
+		try {
+			const registrations =
+				await navigator.serviceWorker.getRegistrations()
+			await Promise.all(
+				registrations.map((registration) => registration.unregister()),
+			)
+
+			if ("caches" in window) {
+				const cacheKeys = await caches.keys()
+				await Promise.all(cacheKeys.map((key) => caches.delete(key)))
+			}
+
+			console.log("SW disabled in DEV and stale caches cleared")
+		} catch (error) {
+			console.error("Failed to clear SW/caches in DEV:", error)
+		}
+
+		return null
+	}
+
 	try {
-		const swUrl = import.meta.env.DEV
-			? "/src/modules/offline/infrastructure/sw.serviceWorker.ts"
-			: "/sw.js"
+		const swUrl = "/sw.js"
 		const options: RegistrationOptions = {
 			scope: "/",
-			type: import.meta.env.DEV ? "module" : "classic",
+			type: "classic",
 		}
 
 		const registration = await navigator.serviceWorker.register(

@@ -29,6 +29,8 @@ export {
 	useRetryRecord,
 	useDeleteLocalRecord,
 	type GroupedRecords,
+	type RecordsDataSource,
+	type RecordDataSource,
 } from "./application/useRecords"
 
 export {

@@ -44,7 +44,6 @@ export function createRecordMutation(
 
 			// Start background sync (non-blocking)
 			syncManager.startSync(id, () => {
-				console.log("revalidate", id)
 				queryClient.invalidateQueries({
 					queryKey: queryKeys.records.detail(id),
 				})
@@ -69,8 +68,6 @@ export function retryRecordMutation(
 			recordId: string
 			phase: FailedPhaseValues
 		}) => {
-			console.log("Retrying record", recordId, "phase", phase)
-
 			if (phase === FailedPhase.COMPRESSING) {
 				await syncManager.compress(recordId)
 				await syncManager.upload(recordId)

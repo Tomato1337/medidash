@@ -4,14 +4,18 @@ import {
 	userQueryOptions,
 	loginMutationOptions,
 	registerMutationOptions,
+	logoutMutationOptions,
 } from "./queries"
 
 // =============================================================================
 // GET USER USE CASE
 // =============================================================================
 
-export function useUser(enabled: boolean = true) {
-	return useQuery(userQueryOptions(enabled))
+export function useUser(
+	enabled: boolean = true,
+	skipGlobalErrorHandler: boolean = false,
+) {
+	return useQuery(userQueryOptions(enabled, skipGlobalErrorHandler))
 }
 
 // =============================================================================
@@ -35,4 +39,21 @@ export function useLogin() {
 
 export function useRegister() {
 	return useMutation(registerMutationOptions())
+}
+
+// =============================================================================
+// LOGOUT USE CASE
+// =============================================================================
+
+export function useLogout() {
+	const queryClient = useQueryClient()
+
+	return useMutation({
+		...logoutMutationOptions(),
+		onSuccess: () => {
+			queryClient.removeQueries({ queryKey: queryKeys.auth.user() })
+			queryClient.removeQueries({ queryKey: queryKeys.documents.all })
+			queryClient.removeQueries({ queryKey: queryKeys.records.all })
+		},
+	})
 }

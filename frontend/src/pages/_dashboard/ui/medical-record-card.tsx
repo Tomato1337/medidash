@@ -3,6 +3,7 @@ import { Badge } from "@/shared/ui/badge"
 import { cn, formatDate } from "@/shared/lib/utils"
 import { File, Clock } from "lucide-react"
 import { Link } from "@tanstack/react-router"
+import { useViewMode } from "@/modules/shared-access"
 import { type DocumentStatusValues, DocumentStatus } from "@shared-types"
 import { Skeleton } from "@/shared/ui/skeleton"
 import { StatusBadge } from "@/modules/documents"
@@ -40,18 +41,25 @@ export function MedicalRecordCard({
 	isRetrying,
 	className,
 }: MedicalRecordCardProps) {
+	const viewMode = useViewMode()
+	const isGuest = viewMode.type === "guest"
+	const linkTo = isGuest ? "/shared/$token/records/$recordId" : "/dashboard/$id"
+	const linkParams = isGuest
+		? { token: viewMode.token, recordId: id }
+		: { id }
 	return (
 		<Link
-			to="/dashboard/$id"
-			params={{ id }}
+			to={linkTo}
+			// @ts-expect-error - params shape depends on route
+			params={linkParams}
 			// @ts-expect-error - state is not strictly typed in router
-			state={{ from: "/dashboard" }}
+			state={{ from: isGuest ? `/shared/${viewMode.token}/dashboard` : "/dashboard" }}
 			className="group block focus-visible:outline-none"
 			aria-label={`Открыть запись: ${title || "Новый документ"}`}
 		>
 			<Card
 				className={cn(
-					"bg-background border-primary group-focus-visible:ring-ring/50 group-focus-visible:ring-offset-background relative cursor-pointer gap-2 overflow-hidden border-2 p-5 shadow-sm transition-shadow group-focus-visible:ring-2 group-focus-visible:ring-offset-2 hover:shadow-md",
+					"bg-background border-primary group-focus-visible:ring-ring/50 group-focus-visible:ring-offset-background relative min-h-48 cursor-pointer gap-2 overflow-hidden border-2 p-5 shadow-sm transition-shadow group-focus-visible:ring-2 group-focus-visible:ring-offset-2 hover:shadow-md",
 					className,
 				)}
 			>

@@ -33,6 +33,18 @@ export const queryKeys = {
 	tags: {
 		all: () => ["tags"] as const,
 	},
+
+	// Shared Access
+	sharedAccess: {
+		all: ["shared-access"] as const,
+		list: () => [...queryKeys.sharedAccess.all, "list"] as const,
+		sessions: (accessId: string) =>
+			[...queryKeys.sharedAccess.all, "sessions", accessId] as const,
+		info: (token: string) =>
+			[...queryKeys.sharedAccess.all, "info", token] as const,
+		isAuthorized: (token: string) =>
+			[...queryKeys.sharedAccess.all, "is-authorized", token] as const,
+	},
 } as const
 
 // =============================================================================
@@ -55,5 +67,11 @@ export const mutationKeys = {
 	documents: {
 		download: ["documents", "download"] as const,
 		upload: ["documents", "upload"] as const,
+	},
+
+	sharedAccess: {
+		create: ["shared-access", "create"] as const,
+		revoke: ["shared-access", "revoke"] as const,
+		revokeSession: ["shared-access", "revoke-session"] as const,
 	},
 } as const

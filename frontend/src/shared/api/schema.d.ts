@@ -21,43 +21,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/records": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get user records */
-        get: operations["RecordsController_getUserRecords"];
-        put?: never;
-        /** Create new record */
-        post: operations["RecordsController_createRecord"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/records/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get record by ID */
-        get: operations["RecordsController_getRecordById"];
-        /** Update record */
-        put: operations["RecordsController_updateRecord"];
-        post?: never;
-        /** Delete record */
-        delete: operations["RecordsController_deleteRecord"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/documents/upload": {
         parameters: {
             query?: never;
@@ -173,6 +136,43 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get user records */
+        get: operations["RecordsController_getUserRecords"];
+        put?: never;
+        /** Create new record */
+        post: operations["RecordsController_createRecord"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/records/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get record by ID */
+        get: operations["RecordsController_getRecordById"];
+        /** Update record */
+        put: operations["RecordsController_updateRecord"];
+        post?: never;
+        /** Delete record */
+        delete: operations["RecordsController_deleteRecord"];
         options?: never;
         head?: never;
         patch?: never;
@@ -333,7 +333,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/api/events/processing": {
+    "/api/events/processing": {
         parameters: {
             query?: never;
             header?: never;
@@ -353,7 +353,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/api/events/processing/{recordId}": {
+    "/api/events/processing/{recordId}": {
         parameters: {
             query?: never;
             header?: never;
@@ -373,7 +373,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/api/events/stats": {
+    "/api/events/stats": {
         parameters: {
             query?: never;
             header?: never;
@@ -495,6 +495,194 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/shared-access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Список гостевых доступов */
+        get: operations["SharedAccessController_listSharedAccesses"];
+        put?: never;
+        /** Создать гостевой доступ */
+        post: operations["SharedAccessController_createSharedAccess"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/shared-access/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Отозвать доступ полностью */
+        delete: operations["SharedAccessController_revokeSharedAccess"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/shared-access/{id}/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Список активных сессий доступа */
+        get: operations["SharedAccessController_listSessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/shared-access/{id}/sessions/{sessionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Отозвать конкретную сессию */
+        delete: operations["SharedAccessController_revokeSession"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/shared-access/{token}/info": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Публичная информация о доступе */
+        get: operations["SharedAccessController_getSharedAccessInfo"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/shared-access/{token}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Проверка пароля и выдача гостевых токенов */
+        post: operations["SharedAccessController_verifySharedAccess"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/shared-access/{token}/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Обновление гостевого access токена */
+        post: operations["SharedAccessController_refreshSharedAccess"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/shared-access/{token}/records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Список записей владельца (гостевой доступ) */
+        get: operations["SharedAccessController_proxyRecords"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/shared-access/{token}/records/{recordId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Детали записи владельца (гостевой доступ) */
+        get: operations["SharedAccessController_proxyRecordById"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/shared-access/{token}/documents/{documentId}/download-url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Получить ссылку для скачивания документа (гостевой доступ) */
+        get: operations["SharedAccessController_proxyDocumentDownloadUrl"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/shared-access/{token}/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Список тегов (гостевой доступ) */
+        get: operations["SharedAccessController_proxyTags"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -520,6 +708,35 @@ export interface components {
              * @example 2025-11-19T20:54:20.915Z
              */
             updatedAt: string;
+        };
+        DocumentResponseDto: {
+            id: string;
+            recordId: string;
+            title?: Record<string, never>;
+            fileName: string;
+            originalFileName: string;
+            mimeType: string;
+            fileSize: number;
+            description?: Record<string, never>;
+            /** @enum {string} */
+            status: "UPLOADING" | "PROCESSING" | "PARSING" | "COMPLETED" | "FAILED";
+            errorMessage?: Record<string, never>;
+            processedAt?: Record<string, never>;
+            failedPhase?: Record<string, never>;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        GetPresignedUrlDto: {
+            /** @example large-document.pdf */
+            filename: string;
+            /** @example application/pdf */
+            mimetype: string;
+            /** @example 10485760 */
+            fileSize: number;
+            /** @example record-id-123 */
+            recordId: string;
         };
         CreateRecordDto: {
             /** @example 550e8400-e29b-41d4-a716-446655440000 */
@@ -571,34 +788,6 @@ export interface components {
              *     ] */
             tags?: string[];
         };
-        DocumentResponseDto: {
-            id: string;
-            recordId: string;
-            title?: Record<string, never>;
-            fileName: string;
-            originalFileName: string;
-            mimeType: string;
-            fileSize: number;
-            description?: Record<string, never>;
-            /** @enum {string} */
-            status: "UPLOADING" | "PROCESSING" | "PARSING" | "COMPLETED" | "FAILED";
-            errorMessage?: Record<string, never>;
-            processedAt?: Record<string, never>;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            updatedAt: string;
-        };
-        GetPresignedUrlDto: {
-            /** @example large-document.pdf */
-            filename: string;
-            /** @example application/pdf */
-            mimetype: string;
-            /** @example 10485760 */
-            fileSize: number;
-            /** @example record-id-123 */
-            recordId: string;
-        };
         RecoveryResponseDto: {
             /**
              * @description Успешность операции
@@ -612,10 +801,10 @@ export interface components {
             recordId: string;
             /**
              * @description Фаза обработки
-             * @example parsing
+             * @example PARSING
              * @enum {string}
              */
-            phase: "parsing" | "processing";
+            phase: "PARSING" | "PROCESSING";
             /**
              * @description Количество документов в обработке
              * @example 3
@@ -641,10 +830,10 @@ export interface components {
             status: "UPLOADING" | "PARSING" | "PROCESSING" | "COMPLETED" | "FAILED";
             /**
              * @description Фаза, на которой произошла ошибка
-             * @example parsing
+             * @example PARSING
              * @enum {string|null}
              */
-            failedPhase?: "parsing" | "processing" | null;
+            failedPhase?: "PARSING" | "PROCESSING" | null;
         };
         QueueStatsDto: {
             /**
@@ -828,6 +1017,188 @@ export interface components {
              */
             message: string;
         };
+        CreateSharedAccessDto: {
+            /**
+             * @description Название профиля доступа
+             * @example Для терапевта
+             */
+            name: string;
+            /**
+             * @description Длительность доступа в днях
+             * @example 7
+             */
+            durationDays: number;
+            /**
+             * @description Текущий пароль владельца (подтверждение личности)
+             * @example currentPassword123
+             */
+            currentPassword: string;
+        };
+        CreateSharedAccessResponseDto: {
+            /**
+             * @description ID доступа
+             * @example cm3access123
+             */
+            id: string;
+            /**
+             * @description Название профиля доступа
+             * @example Для терапевта
+             */
+            name: string;
+            /**
+             * @description Статус доступа
+             * @example ACTIVE
+             */
+            status: string;
+            /**
+             * @description Токен для ссылки
+             * @example qwerty1234567890token
+             */
+            token: string;
+            /**
+             * Format: date-time
+             * @description Когда доступ истекает
+             * @example 2026-03-02T10:00:00.000Z
+             */
+            expiresAt: string;
+            /**
+             * Format: date-time
+             * @description Последний вход по ссылке
+             * @example 2026-03-01T10:30:00.000Z
+             */
+            lastAccessedAt?: string | null;
+            /**
+             * Format: date-time
+             * @description Дата создания доступа
+             * @example 2026-03-01T10:00:00.000Z
+             */
+            createdAt: string;
+            /**
+             * @description Полная ссылка для доступа
+             * @example http://localhost:5173/shared/qwerty1234567890token
+             */
+            shareUrl: string;
+            /**
+             * @description Количество активных сессий
+             * @example 2
+             */
+            activeSessionsCount: number;
+            /**
+             * @description Сгенерированный пароль (показывается один раз)
+             * @example xA9$2mPq
+             */
+            generatedPassword: string;
+        };
+        SharedAccessResponseDto: {
+            /**
+             * @description ID доступа
+             * @example cm3access123
+             */
+            id: string;
+            /**
+             * @description Название профиля доступа
+             * @example Для терапевта
+             */
+            name: string;
+            /**
+             * @description Статус доступа
+             * @example ACTIVE
+             */
+            status: string;
+            /**
+             * @description Токен для ссылки
+             * @example qwerty1234567890token
+             */
+            token: string;
+            /**
+             * Format: date-time
+             * @description Когда доступ истекает
+             * @example 2026-03-02T10:00:00.000Z
+             */
+            expiresAt: string;
+            /**
+             * Format: date-time
+             * @description Последний вход по ссылке
+             * @example 2026-03-01T10:30:00.000Z
+             */
+            lastAccessedAt?: string | null;
+            /**
+             * Format: date-time
+             * @description Дата создания доступа
+             * @example 2026-03-01T10:00:00.000Z
+             */
+            createdAt: string;
+            /**
+             * @description Полная ссылка для доступа
+             * @example http://localhost:5173/shared/qwerty1234567890token
+             */
+            shareUrl: string;
+            /**
+             * @description Количество активных сессий
+             * @example 2
+             */
+            activeSessionsCount: number;
+        };
+        SharedAccessSessionResponseDto: {
+            /**
+             * @description ID сессии (refresh токена)
+             * @example cm3abc123
+             */
+            id: string;
+            /**
+             * @description IP адрес гостя
+             * @example 192.168.1.42
+             */
+            ip?: string | null;
+            /**
+             * @description User-Agent браузера
+             * @example Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)
+             */
+            userAgent?: string | null;
+            /**
+             * Format: date-time
+             * @description Последняя активность (refresh) по сессии
+             * @example 2026-03-01T12:00:00.000Z
+             */
+            lastUsedAt: string;
+            /**
+             * Format: date-time
+             * @description Когда сессия создана
+             * @example 2026-03-01T10:00:00.000Z
+             */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @description Когда сессия истекает
+             * @example 2026-03-02T10:00:00.000Z
+             */
+            expiresAt: string;
+        };
+        SharedAccessInfoResponseDto: {
+            /**
+             * @description Имя владельца профиля
+             * @example Иван П.
+             */
+            ownerName: string;
+            /**
+             * @description Статус доступа
+             * @example active
+             * @enum {string}
+             */
+            status: "active" | "revoked" | "expired";
+            /**
+             * @description ID владельца доступа
+             * @example cm3access123
+             */
+            ownerId: string;
+        };
+        VerifySharedAccessDto: {
+            /**
+             * @description Пароль для входа по гостевой ссылке
+             * @example xA9$2mPq
+             */
+            password: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -853,118 +1224,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["TagResponseDto"][];
                 };
-            };
-        };
-    };
-    RecordsController_getUserRecords: {
-        parameters: {
-            query?: {
-                /** @description Page number */
-                page?: number;
-                /** @description Number of records per page */
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RecordsUsersResponseDto"];
-                };
-            };
-        };
-    };
-    RecordsController_createRecord: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateRecordDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RecordResponseDto"];
-                };
-            };
-        };
-    };
-    RecordsController_getRecordById: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RecordResponseDto"];
-                };
-            };
-        };
-    };
-    RecordsController_updateRecord: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateRecordDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RecordResponseDto"];
-                };
-            };
-        };
-    };
-    RecordsController_deleteRecord: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
         };
     };
@@ -1135,6 +1394,118 @@ export interface operations {
                         mimeType?: string;
                     };
                 };
+            };
+        };
+    };
+    RecordsController_getUserRecords: {
+        parameters: {
+            query?: {
+                /** @description Page number */
+                page?: number;
+                /** @description Number of records per page */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordsUsersResponseDto"];
+                };
+            };
+        };
+    };
+    RecordsController_createRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateRecordDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordResponseDto"];
+                };
+            };
+        };
+    };
+    RecordsController_getRecordById: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordResponseDto"];
+                };
+            };
+        };
+    };
+    RecordsController_updateRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateRecordDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordResponseDto"];
+                };
+            };
+        };
+    };
+    RecordsController_deleteRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -1518,6 +1889,249 @@ export interface operations {
             };
             /** @description Пользователь не найден */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SharedAccessController_listSharedAccesses: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SharedAccessResponseDto"][];
+                };
+            };
+        };
+    };
+    SharedAccessController_createSharedAccess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSharedAccessDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateSharedAccessResponseDto"];
+                };
+            };
+        };
+    };
+    SharedAccessController_revokeSharedAccess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SharedAccessController_listSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SharedAccessSessionResponseDto"][];
+                };
+            };
+        };
+    };
+    SharedAccessController_revokeSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                sessionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SharedAccessController_getSharedAccessInfo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SharedAccessInfoResponseDto"];
+                };
+            };
+        };
+    };
+    SharedAccessController_verifySharedAccess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifySharedAccessDto"];
+            };
+        };
+        responses: {
+            /** @description Успешная верификация */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SharedAccessController_refreshSharedAccess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Токен обновлён */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SharedAccessController_proxyRecords: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SharedAccessController_proxyRecordById: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SharedAccessController_proxyDocumentDownloadUrl: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SharedAccessController_proxyTags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -10,15 +10,28 @@
 
 import { Route as rootRouteImport } from './../../app/routes/__root'
 import { Route as AuthenticatedRouteRouteImport } from './../../app/routes/_authenticated/route'
+import { Route as SharedTokenRouteRouteImport } from './../../app/routes/shared/$token/route'
 import { Route as UnauthenticatedAuthRouteRouteImport } from './../../app/routes/_unauthenticated/auth/route'
 import { Route as AuthenticatedDashboardRouteRouteImport } from './../../app/routes/_authenticated/dashboard/route'
+import { Route as SharedTokenIndexRouteImport } from './../../app/routes/shared/$token/index'
 import { Route as AuthenticatedDashboardIndexRouteImport } from './../../app/routes/_authenticated/dashboard/index'
 import { Route as UnauthenticatedAuthRegisterRouteImport } from './../../app/routes/_unauthenticated/auth/register'
 import { Route as UnauthenticatedAuthLoginRouteImport } from './../../app/routes/_unauthenticated/auth/login'
+import { Route as AuthenticatedDashboardTestRouteImport } from './../../app/routes/_authenticated/dashboard/test'
+import { Route as AuthenticatedDashboardSettingsRouteImport } from './../../app/routes/_authenticated/dashboard/settings'
+import { Route as AuthenticatedDashboardAccessRouteImport } from './../../app/routes/_authenticated/dashboard/access'
 import { Route as AuthenticatedDashboardIdRouteImport } from './../../app/routes/_authenticated/dashboard/$id'
+import { Route as SharedTokensidebarRouteRouteImport } from './../../app/routes/shared/$token/(sidebar)/route'
+import { Route as SharedTokensidebarDashboardRouteImport } from './../../app/routes/shared/$token/(sidebar)/dashboard'
+import { Route as SharedTokensidebarRecordsRecordIdRouteImport } from './../../app/routes/shared/$token/(sidebar)/records/$recordId'
 
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SharedTokenRouteRoute = SharedTokenRouteRouteImport.update({
+  id: '/shared/$token',
+  path: '/shared/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const UnauthenticatedAuthRouteRoute =
@@ -33,6 +46,11 @@ const AuthenticatedDashboardRouteRoute =
     path: '/dashboard',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const SharedTokenIndexRoute = SharedTokenIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => SharedTokenRouteRoute,
+} as any)
 const AuthenticatedDashboardIndexRoute =
   AuthenticatedDashboardIndexRouteImport.update({
     id: '/',
@@ -51,68 +69,145 @@ const UnauthenticatedAuthLoginRoute =
     path: '/login',
     getParentRoute: () => UnauthenticatedAuthRouteRoute,
   } as any)
+const AuthenticatedDashboardTestRoute =
+  AuthenticatedDashboardTestRouteImport.update({
+    id: '/test',
+    path: '/test',
+    getParentRoute: () => AuthenticatedDashboardRouteRoute,
+  } as any)
+const AuthenticatedDashboardSettingsRoute =
+  AuthenticatedDashboardSettingsRouteImport.update({
+    id: '/settings',
+    path: '/settings',
+    getParentRoute: () => AuthenticatedDashboardRouteRoute,
+  } as any)
+const AuthenticatedDashboardAccessRoute =
+  AuthenticatedDashboardAccessRouteImport.update({
+    id: '/access',
+    path: '/access',
+    getParentRoute: () => AuthenticatedDashboardRouteRoute,
+  } as any)
 const AuthenticatedDashboardIdRoute =
   AuthenticatedDashboardIdRouteImport.update({
     id: '/$id',
     path: '/$id',
     getParentRoute: () => AuthenticatedDashboardRouteRoute,
   } as any)
+const SharedTokensidebarRouteRoute = SharedTokensidebarRouteRouteImport.update({
+  id: '/(sidebar)',
+  getParentRoute: () => SharedTokenRouteRoute,
+} as any)
+const SharedTokensidebarDashboardRoute =
+  SharedTokensidebarDashboardRouteImport.update({
+    id: '/dashboard',
+    path: '/dashboard',
+    getParentRoute: () => SharedTokensidebarRouteRoute,
+  } as any)
+const SharedTokensidebarRecordsRecordIdRoute =
+  SharedTokensidebarRecordsRecordIdRouteImport.update({
+    id: '/records/$recordId',
+    path: '/records/$recordId',
+    getParentRoute: () => SharedTokensidebarRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRouteRouteWithChildren
   '/auth': typeof UnauthenticatedAuthRouteRouteWithChildren
+  '/shared/$token': typeof SharedTokenRouteRouteWithChildren
+  '/shared/$token/': typeof SharedTokenIndexRoute
   '/dashboard/$id': typeof AuthenticatedDashboardIdRoute
+  '/dashboard/access': typeof AuthenticatedDashboardAccessRoute
+  '/dashboard/settings': typeof AuthenticatedDashboardSettingsRoute
+  '/dashboard/test': typeof AuthenticatedDashboardTestRoute
   '/auth/login': typeof UnauthenticatedAuthLoginRoute
   '/auth/register': typeof UnauthenticatedAuthRegisterRoute
   '/dashboard/': typeof AuthenticatedDashboardIndexRoute
+  '/shared/$token/dashboard': typeof SharedTokensidebarDashboardRoute
+  '/shared/$token/records/$recordId': typeof SharedTokensidebarRecordsRecordIdRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof UnauthenticatedAuthRouteRouteWithChildren
+  '/shared/$token': typeof SharedTokenIndexRoute
   '/dashboard/$id': typeof AuthenticatedDashboardIdRoute
+  '/dashboard/access': typeof AuthenticatedDashboardAccessRoute
+  '/dashboard/settings': typeof AuthenticatedDashboardSettingsRoute
+  '/dashboard/test': typeof AuthenticatedDashboardTestRoute
   '/auth/login': typeof UnauthenticatedAuthLoginRoute
   '/auth/register': typeof UnauthenticatedAuthRegisterRoute
   '/dashboard': typeof AuthenticatedDashboardIndexRoute
+  '/shared/$token/dashboard': typeof SharedTokensidebarDashboardRoute
+  '/shared/$token/records/$recordId': typeof SharedTokensidebarRecordsRecordIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRouteRouteWithChildren
   '/_unauthenticated/auth': typeof UnauthenticatedAuthRouteRouteWithChildren
+  '/shared/$token': typeof SharedTokenRouteRouteWithChildren
+  '/shared/$token/(sidebar)': typeof SharedTokensidebarRouteRouteWithChildren
   '/_authenticated/dashboard/$id': typeof AuthenticatedDashboardIdRoute
+  '/_authenticated/dashboard/access': typeof AuthenticatedDashboardAccessRoute
+  '/_authenticated/dashboard/settings': typeof AuthenticatedDashboardSettingsRoute
+  '/_authenticated/dashboard/test': typeof AuthenticatedDashboardTestRoute
   '/_unauthenticated/auth/login': typeof UnauthenticatedAuthLoginRoute
   '/_unauthenticated/auth/register': typeof UnauthenticatedAuthRegisterRoute
   '/_authenticated/dashboard/': typeof AuthenticatedDashboardIndexRoute
+  '/shared/$token/': typeof SharedTokenIndexRoute
+  '/shared/$token/(sidebar)/dashboard': typeof SharedTokensidebarDashboardRoute
+  '/shared/$token/(sidebar)/records/$recordId': typeof SharedTokensidebarRecordsRecordIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/dashboard'
     | '/auth'
+    | '/shared/$token'
+    | '/shared/$token/'
     | '/dashboard/$id'
+    | '/dashboard/access'
+    | '/dashboard/settings'
+    | '/dashboard/test'
     | '/auth/login'
     | '/auth/register'
     | '/dashboard/'
+    | '/shared/$token/dashboard'
+    | '/shared/$token/records/$recordId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
+    | '/shared/$token'
     | '/dashboard/$id'
+    | '/dashboard/access'
+    | '/dashboard/settings'
+    | '/dashboard/test'
     | '/auth/login'
     | '/auth/register'
     | '/dashboard'
+    | '/shared/$token/dashboard'
+    | '/shared/$token/records/$recordId'
   id:
     | '__root__'
     | '/_authenticated'
     | '/_authenticated/dashboard'
     | '/_unauthenticated/auth'
+    | '/shared/$token'
+    | '/shared/$token/(sidebar)'
     | '/_authenticated/dashboard/$id'
+    | '/_authenticated/dashboard/access'
+    | '/_authenticated/dashboard/settings'
+    | '/_authenticated/dashboard/test'
     | '/_unauthenticated/auth/login'
     | '/_unauthenticated/auth/register'
     | '/_authenticated/dashboard/'
+    | '/shared/$token/'
+    | '/shared/$token/(sidebar)/dashboard'
+    | '/shared/$token/(sidebar)/records/$recordId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   UnauthenticatedAuthRouteRoute: typeof UnauthenticatedAuthRouteRouteWithChildren
+  SharedTokenRouteRoute: typeof SharedTokenRouteRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -122,6 +217,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: ''
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/shared/$token': {
+      id: '/shared/$token'
+      path: '/shared/$token'
+      fullPath: '/shared/$token'
+      preLoaderRoute: typeof SharedTokenRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_unauthenticated/auth': {
@@ -137,6 +239,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/dashboard'
       preLoaderRoute: typeof AuthenticatedDashboardRouteRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/shared/$token/': {
+      id: '/shared/$token/'
+      path: '/'
+      fullPath: '/shared/$token/'
+      preLoaderRoute: typeof SharedTokenIndexRouteImport
+      parentRoute: typeof SharedTokenRouteRoute
     }
     '/_authenticated/dashboard/': {
       id: '/_authenticated/dashboard/'
@@ -159,6 +268,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UnauthenticatedAuthLoginRouteImport
       parentRoute: typeof UnauthenticatedAuthRouteRoute
     }
+    '/_authenticated/dashboard/test': {
+      id: '/_authenticated/dashboard/test'
+      path: '/test'
+      fullPath: '/dashboard/test'
+      preLoaderRoute: typeof AuthenticatedDashboardTestRouteImport
+      parentRoute: typeof AuthenticatedDashboardRouteRoute
+    }
+    '/_authenticated/dashboard/settings': {
+      id: '/_authenticated/dashboard/settings'
+      path: '/settings'
+      fullPath: '/dashboard/settings'
+      preLoaderRoute: typeof AuthenticatedDashboardSettingsRouteImport
+      parentRoute: typeof AuthenticatedDashboardRouteRoute
+    }
+    '/_authenticated/dashboard/access': {
+      id: '/_authenticated/dashboard/access'
+      path: '/access'
+      fullPath: '/dashboard/access'
+      preLoaderRoute: typeof AuthenticatedDashboardAccessRouteImport
+      parentRoute: typeof AuthenticatedDashboardRouteRoute
+    }
     '/_authenticated/dashboard/$id': {
       id: '/_authenticated/dashboard/$id'
       path: '/$id'
@@ -166,17 +296,44 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardIdRouteImport
       parentRoute: typeof AuthenticatedDashboardRouteRoute
     }
+    '/shared/$token/(sidebar)': {
+      id: '/shared/$token/(sidebar)'
+      path: '/'
+      fullPath: '/shared/$token/'
+      preLoaderRoute: typeof SharedTokensidebarRouteRouteImport
+      parentRoute: typeof SharedTokenRouteRoute
+    }
+    '/shared/$token/(sidebar)/dashboard': {
+      id: '/shared/$token/(sidebar)/dashboard'
+      path: '/dashboard'
+      fullPath: '/shared/$token/dashboard'
+      preLoaderRoute: typeof SharedTokensidebarDashboardRouteImport
+      parentRoute: typeof SharedTokensidebarRouteRoute
+    }
+    '/shared/$token/(sidebar)/records/$recordId': {
+      id: '/shared/$token/(sidebar)/records/$recordId'
+      path: '/records/$recordId'
+      fullPath: '/shared/$token/records/$recordId'
+      preLoaderRoute: typeof SharedTokensidebarRecordsRecordIdRouteImport
+      parentRoute: typeof SharedTokensidebarRouteRoute
+    }
   }
 }
 
 interface AuthenticatedDashboardRouteRouteChildren {
   AuthenticatedDashboardIdRoute: typeof AuthenticatedDashboardIdRoute
+  AuthenticatedDashboardAccessRoute: typeof AuthenticatedDashboardAccessRoute
+  AuthenticatedDashboardSettingsRoute: typeof AuthenticatedDashboardSettingsRoute
+  AuthenticatedDashboardTestRoute: typeof AuthenticatedDashboardTestRoute
   AuthenticatedDashboardIndexRoute: typeof AuthenticatedDashboardIndexRoute
 }
 
 const AuthenticatedDashboardRouteRouteChildren: AuthenticatedDashboardRouteRouteChildren =
   {
     AuthenticatedDashboardIdRoute: AuthenticatedDashboardIdRoute,
+    AuthenticatedDashboardAccessRoute: AuthenticatedDashboardAccessRoute,
+    AuthenticatedDashboardSettingsRoute: AuthenticatedDashboardSettingsRoute,
+    AuthenticatedDashboardTestRoute: AuthenticatedDashboardTestRoute,
     AuthenticatedDashboardIndexRoute: AuthenticatedDashboardIndexRoute,
   }
 
@@ -213,9 +370,40 @@ const UnauthenticatedAuthRouteRouteWithChildren =
     UnauthenticatedAuthRouteRouteChildren,
   )
 
+interface SharedTokensidebarRouteRouteChildren {
+  SharedTokensidebarDashboardRoute: typeof SharedTokensidebarDashboardRoute
+  SharedTokensidebarRecordsRecordIdRoute: typeof SharedTokensidebarRecordsRecordIdRoute
+}
+
+const SharedTokensidebarRouteRouteChildren: SharedTokensidebarRouteRouteChildren =
+  {
+    SharedTokensidebarDashboardRoute: SharedTokensidebarDashboardRoute,
+    SharedTokensidebarRecordsRecordIdRoute:
+      SharedTokensidebarRecordsRecordIdRoute,
+  }
+
+const SharedTokensidebarRouteRouteWithChildren =
+  SharedTokensidebarRouteRoute._addFileChildren(
+    SharedTokensidebarRouteRouteChildren,
+  )
+
+interface SharedTokenRouteRouteChildren {
+  SharedTokensidebarRouteRoute: typeof SharedTokensidebarRouteRouteWithChildren
+  SharedTokenIndexRoute: typeof SharedTokenIndexRoute
+}
+
+const SharedTokenRouteRouteChildren: SharedTokenRouteRouteChildren = {
+  SharedTokensidebarRouteRoute: SharedTokensidebarRouteRouteWithChildren,
+  SharedTokenIndexRoute: SharedTokenIndexRoute,
+}
+
+const SharedTokenRouteRouteWithChildren =
+  SharedTokenRouteRoute._addFileChildren(SharedTokenRouteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   UnauthenticatedAuthRouteRoute: UnauthenticatedAuthRouteRouteWithChildren,
+  SharedTokenRouteRoute: SharedTokenRouteRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

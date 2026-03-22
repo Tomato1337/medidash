@@ -25,7 +25,11 @@ import {
 	type DisplayRecord,
 } from "@/modules/records"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { useEffect } from "react"
+import { useEffect, useMemo } from "react"
+import { SidebarTrigger } from "@/shared/ui/sidebar"
+import { useViewMode, getSharedDocumentDownloadUrl } from "@/modules/shared-access"
+import { getSharedRecord } from "@/modules/shared-access/infrastructure/sharedRecordsApi"
+import { toDisplayRecord } from "@/modules/records"
 
 interface RecordPageProps {
 	id?: string
@@ -36,14 +40,32 @@ export default function RecordPage({ id }: RecordPageProps) {
 	const navigate = useNavigate()
 	const location = useLocation()
 	const router = useRouter()
-	const { data: record, isLoading, isError } = useRecord(id || "")
+	const viewMode = useViewMode()
+	const isGuest = viewMode.type === "guest"
+
+	// Build guest data source only when in guest mode
+	const guestDataSource = useMemo(() => {
+		if (viewMode.type !== "guest" || !id) return undefined
+		const token = viewMode.token
+		return {
+			queryKey: ["record", id, "shared", token],
+			queryFn: async () => {
+				const raw = await getSharedRecord(token, id)
+				return toDisplayRecord(raw)
+			},
+		}
+	// stable for the provider's lifetime
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [isGuest, id, isGuest && viewMode.type === "guest" ? viewMode.token : ""])
+
+	const { data: record, isLoading, isError } = useRecord(id || "", guestDataSource)
 	const retryRecord = useRetryRecord()
 	const documentDownloadMutation = useMutation(
 		documentDownloadMutationOptions(),
 	)
 
 	useEffect(() => {
-		if (!record) return
+		if (!record || isGuest) return
 
 		const unsubscribe = subscribeToRecordProcessing(record.id || "", {
 			allStatus: () => {
@@ -59,18 +81,32 @@ export default function RecordPage({ id }: RecordPageProps) {
 		return () => {
 			unsubscribe()
 		}
-	}, [record])
+	}, [record, isGuest, queryClient])
 
 	const handleRetry = (record: DisplayRecord) => {
-		console.log("retryRecord by page", record)
-		if (!record.errorPhase) return
+		if (!record.failedPhase) return
 		retryRecord.mutate({
 			recordId: record.id,
-			phase: record.errorPhase,
+			phase: record.failedPhase,
 		})
 	}
 
 	const handleDownloadFile = (documentId: string) => {
+		if (isGuest && viewMode.type === "guest") {
+			getSharedDocumentDownloadUrl(viewMode.token, documentId)
+				.then((data) => {
+					const { downloadUrl } = data
+					const link = document.createElement("a")
+					link.target = "_blank"
+					link.href = downloadUrl || ""
+					link.download = ""
+					document.body.appendChild(link)
+					link.click()
+					link.remove()
+				})
+				.catch(() => null)
+			return
+		}
 		documentDownloadMutation.mutate(documentId, {
 			onSuccess: (data) => {
 				const { downloadUrl } = data
@@ -87,11 +123,15 @@ export default function RecordPage({ id }: RecordPageProps) {
 
 	const handleBack = () => {
 		// @ts-expect-error - state is unknown
-		if (location.state?.from === "/dashboard") {
+		if (location.state?.from) {
 			router.history.back()
-		} else {
-			navigate({ to: "/dashboard" })
+			return
 		}
+		if (isGuest && viewMode.type === "guest") {
+			navigate({ to: "/shared/$token/dashboard", params: { token: viewMode.token } })
+			return
+		}
+		navigate({ to: "/dashboard" })
 	}
 
 	if (!id) {
@@ -114,14 +154,22 @@ export default function RecordPage({ id }: RecordPageProps) {
 		return (
 			<div className="flex min-h-screen flex-col items-center justify-center gap-4">
 				<p className="text-destructive text-lg">Запись не найдена</p>
-				<Button onClick={() => navigate({ to: "/dashboard" })}>
+				<Button
+					onClick={() =>
+						isGuest && viewMode.type === "guest"
+							? navigate({ to: "/shared/$token/dashboard", params: { token: viewMode.token } })
+							: navigate({ to: "/dashboard" })
+					}
+				>
 					Вернуться на главную
 				</Button>
 			</div>
 		)
 	}
+
 	const isLocal = isLocalRecord(record)
 	const canRetry =
+		!isGuest &&
 		record.status === DocumentStatus.FAILED &&
 		(isLocal || record.failedPhase)
 
@@ -130,10 +178,13 @@ export default function RecordPage({ id }: RecordPageProps) {
 		if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
 		return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 	}
+
 	return (
 		<div className="mx-auto w-full">
 			{/* Хедер */}
-			<div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+			<div className="bg-accent sticky top-0 z-10 mb-6 flex flex-wrap items-center gap-3 border-b px-3 py-4">
+				{!isGuest && <SidebarTrigger />}
+
 				<Button
 					variant="ghost"
 					onClick={handleBack}
@@ -169,7 +220,7 @@ export default function RecordPage({ id }: RecordPageProps) {
 							onClick={(e) => {
 								e.preventDefault()
 								e.stopPropagation()
-								handleRetry(record)
+								handleRetry(record as DisplayRecord)
 							}}
 							aria-label="Повторить обработку"
 						>
@@ -195,7 +246,6 @@ export default function RecordPage({ id }: RecordPageProps) {
 								{record.title}
 							</h1>
 						) : (
-							// <Skeleton className="bg-accent-foreground h-4 w-full rounded-lg" />
 							<h2 className="text-foreground mb-2 text-xl font-semibold">
 								Новый документ
 							</h2>
@@ -208,9 +258,9 @@ export default function RecordPage({ id }: RecordPageProps) {
 							</p>
 						) : (
 							<div className="mt-4 space-y-1">
-								{Array.from({ length: 4 }).map((_, id) => (
+								{Array.from({ length: 4 }).map((_, i) => (
 									<Skeleton
-										key={id}
+										key={i}
 										className={cn(
 											`bg-accent-foreground h-4 rounded-lg`,
 											{
@@ -227,7 +277,7 @@ export default function RecordPage({ id }: RecordPageProps) {
 							</div>
 						)}
 					</div>
-					{!isLocal && (
+					{!isLocal && !isGuest && (
 						<div className="flex gap-2">
 							<Button
 								variant="ghost"
@@ -302,7 +352,6 @@ export default function RecordPage({ id }: RecordPageProps) {
 				<div className="space-y-3">
 					{isLocal &&
 						record.documents?.map((fileData, index) => {
-							console.log("local", fileData)
 							return (
 								<FileCard
 									key={index}

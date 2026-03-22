@@ -1,13 +1,15 @@
 import { useUser } from "@/modules/auth"
 import { Avatar, AvatarFallback, AvatarImage } from "@/shared/ui/avatar"
 import { Link, Outlet } from "@tanstack/react-router"
+import { useViewMode } from "@/modules/shared-access"
 
 interface HeaderLayoutProps {
 	isDashboard: boolean
 }
 
 export function HeaderLayout({ isDashboard }: HeaderLayoutProps) {
-	const { data, isLoading } = useUser(isDashboard)
+	const { type } = useViewMode()
+	const { data, isLoading } = useUser(isDashboard, type === "guest")
 
 	return (
 		<div

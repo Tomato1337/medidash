@@ -18,7 +18,7 @@ import { registerServiceWorker } from "@/modules/offline"
 
 registerServiceWorker()
 
-// Очистка воркера при закрытии страницы
+// Очистка волкера при закрытии страницы
 window.addEventListener("beforeunload", () => {
 	terminateCompressionWorker()
 })
@@ -98,7 +98,7 @@ declare module "@tanstack/react-router" {
 }
 
 const TanStackRouterDevtools =
-	env.VITE_TANSTACK_DEVTOOLS === "true"
+	env.VITE_TANSTACK_DEVTOOLS === "false"
 		? lazy(() =>
 				import("@tanstack/react-router-devtools").then((m) => ({
 					default: m.TanStackRouterDevtools,

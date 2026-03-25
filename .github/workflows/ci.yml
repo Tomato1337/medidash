@@ -1,0 +1,401 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "22"
+  BUN_VERSION: "latest"
+
+jobs:
+  # ─────────────────────────────────────────────────────────────
+  # Shared Types — сборка и проверка типов (зависимость всех)
+  # ─────────────────────────────────────────────────────────────
+  shared-types:
+    name: "Shared Types"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: services/shared-types/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: services/shared-types
+
+      - name: Type check
+        run: npm run type-check
+        working-directory: services/shared-types
+
+      - name: Build
+        run: npm run build
+        working-directory: services/shared-types
+
+  # ─────────────────────────────────────────────────────────────
+  # Frontend — lint, type-check, unit tests
+  # ─────────────────────────────────────────────────────────────
+  frontend-checks:
+    name: "Frontend — Lint & Types"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+        working-directory: frontend
+
+      - name: Lint
+        run: bun run lint
+        working-directory: frontend
+
+  frontend-unit-tests:
+    name: "Frontend — Unit Tests"
+    runs-on: ubuntu-latest
+    needs: [shared-types]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install shared-types
+        run: npm ci && npm run build
+        working-directory: services/shared-types
+
+      - name: Install frontend dependencies
+        run: bun install --frozen-lockfile
+        working-directory: frontend
+
+      - name: Run unit tests
+        run: bun run test
+        working-directory: frontend
+
+  frontend-build:
+    name: "Frontend — Build"
+    runs-on: ubuntu-latest
+    needs: [shared-types]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install shared-types
+        run: npm ci && npm run build
+        working-directory: services/shared-types
+
+      - name: Install frontend dependencies
+        run: bun install --frozen-lockfile
+        working-directory: frontend
+
+      - name: Build
+        run: bun run build
+        working-directory: frontend
+        env:
+          VITE_URL_TO_BACKEND: http://localhost:7000
+
+  # ─────────────────────────────────────────────────────────────
+  # API Gateway — lint, unit tests, integration tests
+  # ─────────────────────────────────────────────────────────────
+  api-gateway-tests:
+    name: "API Gateway — Tests"
+    runs-on: ubuntu-latest
+    needs: [shared-types]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: services/api-gateway/package-lock.json
+
+      - name: Install shared-types
+        run: npm ci && npm run build
+        working-directory: services/shared-types
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: services/api-gateway
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+        working-directory: services/api-gateway
+
+      - name: Lint
+        run: npm run lint
+        working-directory: services/api-gateway
+
+      - name: Run tests (unit + integration)
+        run: npm test
+        working-directory: services/api-gateway
+
+  # ─────────────────────────────────────────────────────────────
+  # Document Service — lint, unit tests, integration tests
+  # ─────────────────────────────────────────────────────────────
+  document-service-tests:
+    name: "Document Service — Tests"
+    runs-on: ubuntu-latest
+    needs: [shared-types]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: services/document-service/package-lock.json
+
+      - name: Install shared-types
+        run: npm ci && npm run build
+        working-directory: services/shared-types
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: services/document-service
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+        working-directory: services/document-service
+
+      - name: Lint
+        run: npm run lint
+        working-directory: services/document-service
+
+      - name: Run tests (unit + integration)
+        run: npm test
+        working-directory: services/document-service
+
+  # ─────────────────────────────────────────────────────────────
+  # Processing Service — lint, unit tests
+  # ─────────────────────────────────────────────────────────────
+  processing-service-tests:
+    name: "Processing Service — Tests"
+    runs-on: ubuntu-latest
+    needs: [shared-types]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: services/processing-service/package-lock.json
+
+      - name: Install shared-types
+        run: npm ci && npm run build
+        working-directory: services/shared-types
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: services/processing-service
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+        working-directory: services/processing-service
+
+      - name: Lint
+        run: npm run lint
+        working-directory: services/processing-service
+
+      - name: Run tests (unit)
+        run: npm test
+        working-directory: services/processing-service
+
+  # ─────────────────────────────────────────────────────────────
+  # AI Service — lint, unit tests, integration tests
+  # ─────────────────────────────────────────────────────────────
+  ai-service-tests:
+    name: "AI Service — Tests"
+    runs-on: ubuntu-latest
+    needs: [shared-types]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: services/ai-service/package-lock.json
+
+      - name: Install shared-types
+        run: npm ci && npm run build
+        working-directory: services/shared-types
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: services/ai-service
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+        working-directory: services/ai-service
+
+      - name: Lint
+        run: npm run lint
+        working-directory: services/ai-service
+
+      - name: Run tests (unit + integration)
+        run: npm test
+        working-directory: services/ai-service
+
+  # ─────────────────────────────────────────────────────────────
+  # E2E Tests — Playwright (только на main/develop push)
+  # ─────────────────────────────────────────────────────────────
+  e2e-tests:
+    name: "E2E — Playwright"
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    needs:
+      - frontend-unit-tests
+      - frontend-build
+      - api-gateway-tests
+      - document-service-tests
+      - processing-service-tests
+      - ai-service-tests
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: medical_docs
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/medical_docs?schema=public
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: medical_docs
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
+      JWT_SECRET: ci-test-jwt-secret
+      JWT_EXPIRES_IN: 15m
+      JWT_REFRESH_SECRET: ci-test-jwt-refresh-secret
+      JWT_REFRESH_EXPIRES_IN: 7d
+      JWT_SHARED_ACCESS_SECRET: ci-test-shared-access-secret
+      JWT_SHARED_ACCESS_REFRESH_SECRET: ci-test-shared-access-refresh-secret
+      FRONTEND_URL: http://localhost:5173
+      API_GATEWAY_PORT: 3000
+      DOCUMENT_SERVICE_PORT: 3001
+      PROCESSING_SERVICE_PORT: 3002
+      AI_SERVICE_PORT: 3003
+      MINIO_ENDPOINT: localhost
+      MINIO_PORT: 9000
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET_NAME: medical-documents
+      MINIO_USE_SSL: "false"
+      MINIO_EXTERNAL_ENDPOINT: localhost
+      MINIO_EXTERNAL_PORT: 9000
+      NODE_ENV: dev
+      CORS_ORIGIN: http://localhost:5173
+      VITE_URL_TO_BACKEND: http://localhost:3000
+      GEMINI_API_KEY: dummy-key-for-ci
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install shared-types
+        run: npm ci && npm run build
+        working-directory: services/shared-types
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+        working-directory: frontend
+
+      - name: Install frontend dependencies
+        run: bun install --frozen-lockfile
+        working-directory: frontend
+
+      - name: Run Playwright tests
+        run: npx playwright test
+        working-directory: frontend
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 14
+
+  # ─────────────────────────────────────────────────────────────
+  # Финальный статус — gate для branch protection
+  # ─────────────────────────────────────────────────────────────
+  ci-status:
+    name: "CI Status"
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      - shared-types
+      - frontend-checks
+      - frontend-unit-tests
+      - frontend-build
+      - api-gateway-tests
+      - document-service-tests
+      - processing-service-tests
+      - ai-service-tests
+    steps:
+      - name: Check CI results
+        run: |
+          if [ "${{ needs.shared-types.result }}" != "success" ] ||
+             [ "${{ needs.frontend-checks.result }}" != "success" ] ||
+             [ "${{ needs.frontend-unit-tests.result }}" != "success" ] ||
+             [ "${{ needs.frontend-build.result }}" != "success" ] ||
+             [ "${{ needs.api-gateway-tests.result }}" != "success" ] ||
+             [ "${{ needs.document-service-tests.result }}" != "success" ] ||
+             [ "${{ needs.processing-service-tests.result }}" != "success" ] ||
+             [ "${{ needs.ai-service-tests.result }}" != "success" ]; then
+            echo "❌ One or more CI checks failed"
+            exit 1
+          fi
+          echo "✅ All CI checks passed"

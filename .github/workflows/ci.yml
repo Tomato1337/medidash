@@ -62,6 +62,8 @@ jobs:
       - name: Lint
         run: bun run lint
         working-directory: frontend
+        env:
+          VITE_URL_TO_BACKEND: http://localhost:7000
 
   frontend-unit-tests:
     name: "Frontend — Unit Tests"
@@ -89,6 +91,8 @@ jobs:
       - name: Run unit tests
         run: bun run test
         working-directory: frontend
+        env:
+          VITE_URL_TO_BACKEND: http://localhost:7000
 
   frontend-build:
     name: "Frontend — Build"
@@ -146,6 +150,8 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
         working-directory: services/api-gateway
+        env:
+          DATABASE_URL: postgresql://localhost:5432/dummy
 
       - name: Lint
         run: npm run lint
@@ -182,6 +188,8 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
         working-directory: services/document-service
+        env:
+          DATABASE_URL: postgresql://localhost:5432/dummy
 
       - name: Lint
         run: npm run lint
@@ -218,6 +226,8 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
         working-directory: services/processing-service
+        env:
+          DATABASE_URL: postgresql://localhost:5432/dummy
 
       - name: Lint
         run: npm run lint
@@ -254,6 +264,8 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
         working-directory: services/ai-service
+        env:
+          DATABASE_URL: postgresql://localhost:5432/dummy
 
       - name: Lint
         run: npm run lint

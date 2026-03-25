@@ -289,36 +289,13 @@ jobs:
       - document-service-tests
       - processing-service-tests
       - ai-service-tests
-    services:
-      postgres:
-        image: pgvector/pgvector:pg16
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: medical_docs
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/medical_docs?schema=public
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/medical_docs?schema=public
       POSTGRES_PORT: 5432
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: medical_docs
-      REDIS_HOST: localhost
+      REDIS_HOST: redis
       REDIS_PORT: 6379
       JWT_SECRET: ci-test-jwt-secret
       JWT_EXPIRES_IN: 15m
@@ -331,7 +308,7 @@ jobs:
       DOCUMENT_SERVICE_PORT: 3001
       PROCESSING_SERVICE_PORT: 3002
       AI_SERVICE_PORT: 3003
-      MINIO_ENDPOINT: localhost
+      MINIO_ENDPOINT: minio
       MINIO_PORT: 9000
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
@@ -347,6 +324,18 @@ jobs:
       GEMINI_API_KEY: dummy-key-for-ci
     steps:
       - uses: actions/checkout@v4
+
+      - name: Create .env file for docker-compose
+        run: printenv > .env
+
+      - name: Start backend via docker-compose
+        run: |
+          docker compose up -d postgres redis minio minio-init nginx api-gateway document-service processing-service ai-service anonymizer-service
+          echo "Waiting for backend services to initialize..."
+          sleep 10
+          # We check the API Gateway health endpoint (it depends on postgres and redis)
+          npx wait-on -t 120000 http-get://localhost:3000/api/health
+          echo "Backend is ready!"
 
       - uses: actions/setup-node@v4
         with:

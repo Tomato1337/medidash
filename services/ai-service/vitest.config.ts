@@ -26,7 +26,7 @@ export default defineConfig({
 	resolve: {
 		alias: {
 			src: path.resolve(__dirname, "./src"),
-			"generated/prisma": path.resolve(__dirname, "./generated/prisma"),
+			"generated/prisma": path.resolve(__dirname, "./generated/prisma/client/client"),
 			"@shared-types": path.resolve(__dirname, "../shared-types"),
 		},
 	},
